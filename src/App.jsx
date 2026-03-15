@@ -8,35 +8,27 @@ const GAS_URL_BASE = GAS_URL;
 
 // GET: coba fetch dulu, fallback ke JSONP jika CORS error
 async function gasGet(params) {
-  const qs  = Object.keys(params).map(k => k+"="+encodeURIComponent(params[k])).join("&");
+  const qs  = Object.keys(params).map(k => k + "=" + encodeURIComponent(params[k])).join("&");
   const url = GAS_URL_BASE + "?" + qs;
 
-  // Coba fetch biasa dulu
-  try {
-    const res  = await fetch(url, { method:"GET", redirect:"follow" });
-    const text = await res.text();
-    if (!text.trim().startsWith("<")) {
-      return JSON.parse(text);
-    }
-  } catch(e) {
-    console.log("[Lariz] fetch GET failed, trying JSONP:", e.message);
-  }
-
-  // Fallback: JSONP
   return new Promise((resolve, reject) => {
-    const cbName = "__gasCallback_" + Date.now();
+    const cbName = "__gas_" + Date.now() + "_" + Math.random().toString(36).slice(2);
     const jsUrl  = url + "&callback=" + cbName;
     const script = document.createElement("script");
-    const timer  = setTimeout(() => {
-      cleanup(); reject(new Error("JSONP timeout — cek deployment GAS"));
+
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error("JSONP timeout"));
     }, 15000);
+
     function cleanup() {
       clearTimeout(timer);
       delete window[cbName];
       if (script.parentNode) script.parentNode.removeChild(script);
     }
+
     window[cbName] = (data) => { cleanup(); resolve(data); };
-    script.onerror = () => { cleanup(); reject(new Error("JSONP script error")); };
+    script.onerror = () => { cleanup(); reject(new Error("JSONP error")); };
     script.src = jsUrl;
     document.head.appendChild(script);
   });
