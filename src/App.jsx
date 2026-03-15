@@ -845,7 +845,7 @@ function WithdrawModal({agent, saldo, onConfirm, onClose}) {
 
   const handleConfirm = async () => {
     setLoading(true);
-    await onConfirm({ agent: agent.id, jumlah: num, keterangan: ket || `Tarik tabungan ${agent.label}` });
+    await onConfirm({ agent: agent.id, jumlah: num, keterangan: ket || `Tarik tabungan ${agent.label}`, buktiName: bukti ? bukti.name : "" });
     setLoading(false);
     setStep(3);
   };
@@ -1076,6 +1076,8 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
 
   // Form: Input Promo
   const [promoForm,setPromoForm]=useState({tanggal:new Date().toISOString().split("T")[0],keterangan:"",jumlah:""});
+  const [promoBukti,setPromoBukti]=useState(null); // {file,url,name}
+  const promoBuktiRef=useRef();
   const [savingPromo,setSavingPromo]=useState(false);
 
   const addToast=(msg,type="success")=>{
@@ -1132,19 +1134,21 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
     if(!promoForm.keterangan||!promoForm.jumlah){addToast("Keterangan & jumlah wajib diisi!","error");return;}
     setSavingPromo(true);
     const newRec={id:"p"+Date.now(),type:"promo",tanggal:promoForm.tanggal,
-      keterangan:promoForm.keterangan,jumlah:parseMoney(promoForm.jumlah)};
+      keterangan:promoForm.keterangan,jumlah:parseMoney(promoForm.jumlah),
+      buktiName:promoBukti?promoBukti.name:""};
     try {
       await fetch(GAS_URL,{method:"POST",body:JSON.stringify({action:"addPromo",...newRec})});
     } catch{}
     setData(d=>[newRec,...d]);
     setPromoForm({tanggal:new Date().toISOString().split("T")[0],keterangan:"",jumlah:""});
+    setPromoBukti(null);
     addToast("Pengeluaran berhasil dicatat!");
     setSavingPromo(false); setTab("overview");
   };
 
   // Withdraw
-  const handleWithdraw=async({agent,jumlah,keterangan})=>{
-    const newRec={id:"w"+Date.now(),type:"withdraw",tanggal:new Date().toISOString().split("T")[0],agent,jumlah,keterangan};
+  const handleWithdraw=async({agent,jumlah,keterangan,buktiName=""})=>{
+    const newRec={id:"w"+Date.now(),type:"withdraw",tanggal:new Date().toISOString().split("T")[0],agent,jumlah,keterangan,buktiName:buktiName||""};
     try {
       await fetch(GAS_URL,{method:"POST",body:JSON.stringify({action:"addWithdraw",...newRec})});
     } catch{}
@@ -1487,40 +1491,151 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
             TAB: INPUT PROMO
         ══════════════════════════════════════ */}
         {tab==="input-promo" && (
-          <div style={{animation:"fadeUp .3s ease",maxWidth:600}}>
+          <div style={{animation:"fadeUp .3s ease",maxWidth:640}}>
             <SectionTitle>📤 Input Pengeluaran / Promo</SectionTitle>
-            <Panel title="Catat Pengeluaran Operasional" accent="#F87171">
-              <div style={{marginBottom:12,padding:"10px 14px",background:"rgba(248,113,113,.07)",border:"1px solid rgba(248,113,113,.15)",borderRadius:9}}>
-                <p style={{fontSize:12,color:"#94A3B8"}}>Pengeluaran ini akan mengurangi saldo operasional BDB. Contoh: ATK, brosur, biaya pemasaran, dll.</p>
-              </div>
-              <Fld label="Tanggal"><input type="date" style={S.inp} value={promoForm.tanggal} onChange={e=>setPromoForm(f=>({...f,tanggal:e.target.value}))}/></Fld>
-              <Fld label="Keterangan Pengeluaran">
-                <input style={S.inp} value={promoForm.keterangan} onChange={e=>setPromoForm(f=>({...f,keterangan:e.target.value}))} placeholder="ATK, Print Brosur, dll"/>
-              </Fld>
-              <MoneyFld label="Jumlah (Rp)" value={promoForm.jumlah} onChange={setMoney(promoForm,setPromoForm,"jumlah")}/>
-              <div style={{marginTop:6,padding:"10px 14px",background:"rgba(255,255,255,.03)",borderRadius:9,display:"flex",justifyContent:"space-between"}}>
-                <span style={{fontSize:12,color:"#475569"}}>Jumlah</span>
-                <span style={{fontFamily:"'DM Mono',monospace",fontSize:14,fontWeight:700,color:"#F87171"}}>- {rp(parseMoney(promoForm.jumlah))}</span>
-              </div>
-              <button onClick={savePromo} disabled={savingPromo} style={{...S.saveBtn(savingPromo),background:savingPromo?"#1E293B":"linear-gradient(135deg,#EF4444,#DC2626)",
-                boxShadow:savingPromo?"none":"0 4px 16px rgba(239,68,68,.3)",marginTop:14}}>
-                {savingPromo?"⏳ Menyimpan...":"📤 Catat Pengeluaran"}
-              </button>
-            </Panel>
+            <div className="grid-2-eq" style={{gap:20,alignItems:"start"}}>
 
-            {/* Recent promo */}
-            <div style={{marginTop:20}}>
-              <p style={{fontSize:12,fontWeight:600,color:"#475569",marginBottom:10}}>PENGELUARAN TERAKHIR</p>
-              {promoRecords.slice(0,5).map((r,i)=>(
-                <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-                  padding:"10px 14px",borderRadius:9,background:"rgba(255,255,255,.02)",border:"1px solid rgba(255,255,255,.05)",marginBottom:6}}>
-                  <div>
-                    <p style={{fontSize:13,color:"#CBD5E1",fontWeight:500}}>{r.keterangan}</p>
-                    <p style={{fontSize:11,color:"#334155"}}>{fmtDate(r.tanggal)}</p>
-                  </div>
-                  <span style={{fontFamily:"'DM Mono',monospace",fontSize:14,fontWeight:700,color:"#F87171"}}>- {rp(r.jumlah)}</span>
+              {/* LEFT: Form */}
+              <Panel title="Catat Pengeluaran Operasional" accent="#F87171">
+                <div style={{marginBottom:12,padding:"10px 14px",background:"rgba(248,113,113,.07)",
+                  border:"1px solid rgba(248,113,113,.15)",borderRadius:9}}>
+                  <p style={{fontSize:12,color:"#94A3B8"}}>Mengurangi saldo operasional BDB. Contoh: ATK, brosur, biaya pemasaran.</p>
                 </div>
-              ))}
+                <Fld label="Tanggal">
+                  <input type="date" style={S.inp} value={promoForm.tanggal}
+                    onChange={e=>setPromoForm(f=>({...f,tanggal:e.target.value}))}/>
+                </Fld>
+                <Fld label="Keterangan Pengeluaran">
+                  <input style={S.inp} value={promoForm.keterangan}
+                    onChange={e=>setPromoForm(f=>({...f,keterangan:e.target.value}))}
+                    placeholder="ATK, Print Brosur, dll"/>
+                </Fld>
+                <MoneyFld label="Jumlah (Rp)" value={promoForm.jumlah} onChange={setMoney(promoForm,setPromoForm,"jumlah")}/>
+
+                {/* Upload nota/bukti */}
+                <div style={{marginBottom:14}}>
+                  <label style={S.lbl}>Nota / Bukti Transfer (opsional)</label>
+                  <input ref={promoBuktiRef} type="file" accept="image/*,.pdf"
+                    onChange={e=>{
+                      const file=e.target.files[0];
+                      if(file) setPromoBukti({file,url:URL.createObjectURL(file),name:file.name});
+                    }}
+                    style={{display:"none"}}/>
+
+                  {/* Drop zone */}
+                  <div
+                    onClick={()=>promoBuktiRef.current.click()}
+                    onDrop={e=>{
+                      e.preventDefault();
+                      const file=e.dataTransfer.files[0];
+                      if(file) setPromoBukti({file,url:URL.createObjectURL(file),name:file.name});
+                    }}
+                    onDragOver={e=>e.preventDefault()}
+                    style={{
+                      border:`2px dashed ${promoBukti?"rgba(248,113,113,.6)":"rgba(255,255,255,.1)"}`,
+                      borderRadius:10,padding:"14px 12px",textAlign:"center",cursor:"pointer",
+                      background:promoBukti?"rgba(248,113,113,.05)":"rgba(255,255,255,.02)",
+                      transition:"all .2s",
+                    }}
+                    onMouseEnter={e=>{if(!promoBukti)e.currentTarget.style.borderColor="rgba(255,255,255,.2)";}}
+                    onMouseLeave={e=>{if(!promoBukti)e.currentTarget.style.borderColor="rgba(255,255,255,.1)";}}>
+                    {promoBukti ? (
+                      <div>
+                        {promoBukti.file.type.startsWith("image/") ? (
+                          <img src={promoBukti.url} alt="bukti"
+                            style={{maxHeight:120,maxWidth:"100%",borderRadius:7,marginBottom:6,objectFit:"contain"}}/>
+                        ) : (
+                          <div style={{fontSize:32,marginBottom:6}}>📄</div>
+                        )}
+                        <p style={{fontSize:12,color:"#F87171",fontWeight:600}}>{promoBukti.name}</p>
+                        <p style={{fontSize:10,color:"#475569",marginTop:3}}>Klik untuk ganti</p>
+                      </div>
+                    ) : (
+                      <div>
+                        <div style={{fontSize:28,opacity:.4,marginBottom:6}}>🧾</div>
+                        <p style={{fontSize:12,color:"#64748B"}}>Klik atau drag nota/bukti</p>
+                        <p style={{fontSize:10,color:"#334155",marginTop:3}}>JPG, PNG, PDF</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Remove button */}
+                  {promoBukti && (
+                    <button onClick={()=>setPromoBukti(null)}
+                      style={{marginTop:6,padding:"4px 10px",borderRadius:6,border:"1px solid rgba(248,113,113,.3)",
+                        background:"rgba(248,113,113,.08)",color:"#F87171",fontSize:11,fontWeight:600,cursor:"pointer"}}>
+                      ✕ Hapus file
+                    </button>
+                  )}
+                </div>
+
+                {/* Summary */}
+                <div style={{padding:"10px 14px",background:"rgba(255,255,255,.03)",borderRadius:9,
+                  display:"flex",justifyContent:"space-between",marginBottom:14}}>
+                  <span style={{fontSize:12,color:"#475569"}}>Total pengeluaran</span>
+                  <span style={{fontFamily:"'DM Mono',monospace",fontSize:14,fontWeight:700,color:"#F87171"}}>
+                    - {rp(parseMoney(promoForm.jumlah))}
+                  </span>
+                </div>
+
+                <button onClick={savePromo} disabled={savingPromo}
+                  style={{...S.saveBtn(savingPromo),
+                    background:savingPromo?"#1E293B":"linear-gradient(135deg,#EF4444,#DC2626)",
+                    boxShadow:savingPromo?"none":"0 4px 16px rgba(239,68,68,.3)"}}>
+                  {savingPromo?"⏳ Menyimpan...":"📤 Catat Pengeluaran"}
+                </button>
+              </Panel>
+
+              {/* RIGHT: Recent + preview */}
+              <div style={{display:"flex",flexDirection:"column",gap:14}}>
+                {/* Preview bukti besar */}
+                {promoBukti && promoBukti.file.type.startsWith("image/") && (
+                  <div style={{background:"rgba(255,255,255,.02)",border:"1px solid rgba(255,255,255,.07)",
+                    borderRadius:12,padding:14,animation:"fadeUp .2s ease"}}>
+                    <p style={{fontSize:10,color:"#334155",letterSpacing:".08em",marginBottom:8}}>PREVIEW NOTA / BUKTI</p>
+                    <img src={promoBukti.url} alt="preview"
+                      style={{width:"100%",borderRadius:8,objectFit:"contain",maxHeight:220}}/>
+                    <p style={{fontSize:11,color:"#475569",marginTop:6}}>{promoBukti.name}</p>
+                  </div>
+                )}
+                {promoBukti && !promoBukti.file.type.startsWith("image/") && (
+                  <div style={{background:"rgba(255,255,255,.02)",border:"1px solid rgba(248,113,113,.2)",
+                    borderRadius:12,padding:14,textAlign:"center",animation:"fadeUp .2s ease"}}>
+                    <div style={{fontSize:40,marginBottom:8}}>📄</div>
+                    <p style={{fontSize:12,color:"#F87171",fontWeight:600}}>{promoBukti.name}</p>
+                    <p style={{fontSize:10,color:"#475569",marginTop:4}}>File PDF siap disimpan</p>
+                  </div>
+                )}
+
+                {/* Recent */}
+                <div>
+                  <p style={{fontSize:10,fontWeight:700,color:"#334155",letterSpacing:".1em",
+                    textTransform:"uppercase",marginBottom:10}}>Pengeluaran Terakhir</p>
+                  {promoRecords.length===0 && (
+                    <p style={{fontSize:12,color:"#334155",textAlign:"center",padding:20}}>Belum ada data</p>
+                  )}
+                  {promoRecords.slice(0,5).map((r,i)=>(
+                    <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+                      padding:"10px 12px",borderRadius:9,background:"rgba(255,255,255,.02)",
+                      border:"1px solid rgba(255,255,255,.05)",marginBottom:6}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        <p style={{fontSize:13,color:"#CBD5E1",fontWeight:500,
+                          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.keterangan}</p>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginTop:2}}>
+                          <p style={{fontSize:10,color:"#334155"}}>{fmtDate(r.tanggal)}</p>
+                          {r.buktiName && (
+                            <span style={{fontSize:10,color:"#475569",display:"flex",alignItems:"center",gap:3}}>
+                              📎 {r.buktiName.length>15?r.buktiName.slice(0,15)+"...":r.buktiName}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span style={{fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:700,
+                        color:"#F87171",marginLeft:10,whiteSpace:"nowrap"}}>- {rp(r.jumlah)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -1965,13 +2080,12 @@ function FullHistoryTable({ data, agents, onDelete, onEdit }) {
                         <div style={{display:"flex",alignItems:"center",gap:6}}>
                           {isFee&&<span style={{fontFamily:"'DM Mono',monospace",color:"#818CF8",fontSize:13,whiteSpace:"nowrap"}}>{rp(r.netCommission)}</span>}
                           {isWd &&<span style={{fontFamily:"'DM Mono',monospace",color:"#F59E0B",fontSize:13,whiteSpace:"nowrap"}}>{rp(r.jumlah)}</span>}
-                          {isFee&&(
-                            <button onClick={()=>setExpanded(isExp?null:i)}
-                              style={{padding:"2px 7px",borderRadius:5,border:"1px solid rgba(255,255,255,.1)",
-                                background:"transparent",color:"#334155",fontSize:10,cursor:"pointer"}}>
-                              {isExp?"▲":"▼"}
-                            </button>
-                          )}
+                          <button onClick={()=>setExpanded(isExp?null:i)}
+                            style={{padding:"2px 7px",borderRadius:5,border:"1px solid rgba(255,255,255,.1)",
+                              background:isExp?"rgba(255,255,255,.06)":"transparent",
+                              color:"#475569",fontSize:10,cursor:"pointer",transition:"all .15s"}}>
+                            {isExp?"▲":"▼"}
+                          </button>
                         </div>
                       </td>
                       {/* Aksi */}
@@ -2000,21 +2114,108 @@ function FullHistoryTable({ data, agents, onDelete, onEdit }) {
                         </div>
                       </td>
                     </tr>
-                    {/* Expand detail fee */}
-                    {isExp && isFee && (
-                      <tr style={{background:"rgba(99,102,241,.04)",borderBottom:"1px solid rgba(255,255,255,.04)"}}>
-                        <td colSpan={7} style={{padding:"12px 18px"}}>
-                          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:8,animation:"fadeUp .2s ease"}}>
-                            {[["Fee BT",r.feeAgentBT,"#F87171"],["BDB 40%",r.bdb,"#F59E0B"],
-                              ["Aris 22.5%",r.aris,"#22D3EE"],["Argo 22.5%",r.argo,"#F59E0B"],["Darma 15%",r.darma,"#A78BFA"],
-                              ["Operasional",r.opBdb,"#34D399"],["Saving Aris",r.savingAris,"#22D3EE"],
-                              ["Saving Argo",r.savingArgo,"#F59E0B"],["Saving Darma",r.savingDarma,"#A78BFA"],
-                            ].map(([l,v,c])=>(
-                              <div key={l} style={{background:"rgba(255,255,255,.03)",borderRadius:8,padding:"7px 10px"}}>
-                                <div style={{fontSize:9,color:"#334155",textTransform:"uppercase",letterSpacing:".07em"}}>{l}</div>
-                                <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:c,fontWeight:600}}>{rp(v)}</div>
+                    {/* Expand detail — semua tipe */}
+                    {isExp && (
+                      <tr style={{
+                        background: isFee?"rgba(99,102,241,.04)":isPromo?"rgba(239,68,68,.04)":"rgba(245,158,11,.04)",
+                        borderBottom:"1px solid rgba(255,255,255,.04)"}}>
+                        <td colSpan={7} style={{padding:"14px 18px"}}>
+                          <div style={{animation:"fadeUp .2s ease"}}>
+
+                            {/* FEE — alokasi breakdown */}
+                            {isFee && (
+                              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:8}}>
+                                {[["Fee BT",r.feeAgentBT,"#F87171"],["BDB 40%",r.bdb,"#F59E0B"],
+                                  ["Aris 22.5%",r.aris,"#22D3EE"],["Argo 22.5%",r.argo,"#F59E0B"],["Darma 15%",r.darma,"#A78BFA"],
+                                  ["Operasional",r.opBdb,"#34D399"],["Saving Aris",r.savingAris,"#22D3EE"],
+                                  ["Saving Argo",r.savingArgo,"#F59E0B"],["Saving Darma",r.savingDarma,"#A78BFA"],
+                                ].map(([l,v,c])=>(
+                                  <div key={l} style={{background:"rgba(255,255,255,.03)",borderRadius:8,padding:"7px 10px"}}>
+                                    <div style={{fontSize:9,color:"#334155",textTransform:"uppercase",letterSpacing:".07em"}}>{l}</div>
+                                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:c,fontWeight:600}}>{rp(v)}</div>
+                                  </div>
+                                ))}
+                                {r.keterangan && (
+                                  <div style={{background:"rgba(255,255,255,.03)",borderRadius:8,padding:"7px 10px",gridColumn:"1/-1"}}>
+                                    <div style={{fontSize:9,color:"#334155",textTransform:"uppercase",letterSpacing:".07em"}}>Keterangan</div>
+                                    <div style={{fontSize:12,color:"#94A3B8"}}>{r.keterangan||"—"}</div>
+                                  </div>
+                                )}
                               </div>
-                            ))}
+                            )}
+
+                            {/* PROMO — detail pengeluaran + bukti */}
+                            {isPromo && (
+                              <div style={{display:"flex",gap:16,flexWrap:"wrap",alignItems:"flex-start"}}>
+                                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:8,flex:1}}>
+                                  {[
+                                    ["Tanggal",        fmtDate(r.tanggal),           "#64748B"],
+                                    ["Keterangan",     r.keterangan||"—",            "#CBD5E1"],
+                                    ["Jumlah",         rp(r.jumlah),                 "#F87171"],
+                                    ["Dicatat oleh",   "Admin",                      "#94A3B8"],
+                                  ].map(([l,v,c])=>(
+                                    <div key={l} style={{background:"rgba(255,255,255,.03)",borderRadius:8,padding:"7px 10px"}}>
+                                      <div style={{fontSize:9,color:"#334155",textTransform:"uppercase",letterSpacing:".07em"}}>{l}</div>
+                                      <div style={{fontSize:12,color:c,fontWeight:l==="Jumlah"?700:400,fontFamily:l==="Jumlah"?"'DM Mono',monospace":"inherit"}}>{v}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                                {/* Bukti/nota */}
+                                {r.buktiName ? (
+                                  <div style={{background:"rgba(255,255,255,.03)",border:"1px solid rgba(248,113,113,.15)",
+                                    borderRadius:10,padding:"10px 14px",minWidth:160,textAlign:"center"}}>
+                                    <div style={{fontSize:9,color:"#334155",letterSpacing:".07em",textTransform:"uppercase",marginBottom:6}}>Nota / Bukti</div>
+                                    <div style={{fontSize:28,marginBottom:4}}>🧾</div>
+                                    <div style={{fontSize:11,color:"#F87171",fontWeight:600,wordBreak:"break-word"}}>{r.buktiName}</div>
+                                    <div style={{fontSize:10,color:"#334155",marginTop:4}}>File tersimpan</div>
+                                  </div>
+                                ) : (
+                                  <div style={{background:"rgba(255,255,255,.02)",border:"1px dashed rgba(255,255,255,.08)",
+                                    borderRadius:10,padding:"10px 14px",minWidth:140,textAlign:"center"}}>
+                                    <div style={{fontSize:9,color:"#334155",letterSpacing:".07em",textTransform:"uppercase",marginBottom:6}}>Nota / Bukti</div>
+                                    <div style={{fontSize:22,marginBottom:4,opacity:.3}}>🧾</div>
+                                    <div style={{fontSize:11,color:"#334155"}}>Tidak ada bukti</div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* TARIK — detail penarikan + bukti transfer */}
+                            {isWd && (
+                              <div style={{display:"flex",gap:16,flexWrap:"wrap",alignItems:"flex-start"}}>
+                                <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:8,flex:1}}>
+                                  {[
+                                    ["Tanggal",        fmtDate(r.tanggal),           "#64748B"],
+                                    ["Agen",           r.agent?.charAt(0).toUpperCase()+r.agent?.slice(1)||"—", ag?.color||"#E2E8F0"],
+                                    ["Jumlah Ditarik", rp(r.jumlah),                 "#F59E0B"],
+                                    ["Keterangan",     r.keterangan||"—",            "#94A3B8"],
+                                  ].map(([l,v,c])=>(
+                                    <div key={l} style={{background:"rgba(255,255,255,.03)",borderRadius:8,padding:"7px 10px"}}>
+                                      <div style={{fontSize:9,color:"#334155",textTransform:"uppercase",letterSpacing:".07em"}}>{l}</div>
+                                      <div style={{fontSize:12,color:c,fontWeight:l==="Jumlah Ditarik"?700:400,fontFamily:l==="Jumlah Ditarik"?"'DM Mono',monospace":"inherit"}}>{v}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                                {/* Bukti transfer */}
+                                {r.buktiName ? (
+                                  <div style={{background:"rgba(255,255,255,.03)",border:`1px solid ${ag?.color||"#F59E0B"}25`,
+                                    borderRadius:10,padding:"10px 14px",minWidth:160,textAlign:"center"}}>
+                                    <div style={{fontSize:9,color:"#334155",letterSpacing:".07em",textTransform:"uppercase",marginBottom:6}}>Bukti Transfer</div>
+                                    <div style={{fontSize:28,marginBottom:4}}>📎</div>
+                                    <div style={{fontSize:11,color:ag?.color||"#F59E0B",fontWeight:600,wordBreak:"break-word"}}>{r.buktiName}</div>
+                                    <div style={{fontSize:10,color:"#334155",marginTop:4}}>File tersimpan</div>
+                                  </div>
+                                ) : (
+                                  <div style={{background:"rgba(255,255,255,.02)",border:"1px dashed rgba(255,255,255,.08)",
+                                    borderRadius:10,padding:"10px 14px",minWidth:140,textAlign:"center"}}>
+                                    <div style={{fontSize:9,color:"#334155",letterSpacing:".07em",textTransform:"uppercase",marginBottom:6}}>Bukti Transfer</div>
+                                    <div style={{fontSize:22,marginBottom:4,opacity:.3}}>📎</div>
+                                    <div style={{fontSize:11,color:"#334155"}}>Tidak ada bukti</div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
                           </div>
                         </td>
                       </tr>
