@@ -98,6 +98,25 @@ const DEMO_TRANS = [];
 // ─── UTILS ────────────────────────────────────────────────────────────────────
 const rp    = (n) => "Rp\u00A0" + Math.round(n||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g,".");
 const rpS   = (n) => { n=Math.round(n||0); if(n>=1e9) return "Rp\u00A0"+(n/1e9).toFixed(1)+"M"; if(n>=1e6) return "Rp\u00A0"+(n/1e6).toFixed(1)+"jt"; return rp(n); };
+// Upload file bukti ke GAS → Google Drive, return URL
+async function uploadBuktiToGAS(file) {
+  if (!file) return "";
+  try {
+    const base64 = await new Promise((res,rej) => {
+      const r = new FileReader();
+      r.onload  = () => res(r.result.split(",")[1]);
+      r.onerror = () => rej("read error");
+      r.readAsDataURL(file);
+    });
+    const resp = await fetch(GAS_URL, {
+      method:"POST",
+      body: JSON.stringify({ action:"uploadBukti", base64, mimeType:file.type, fileName:file.name })
+    });
+    const data = await resp.json();
+    return data.status==="ok" ? data.url : "";
+  } catch { return ""; }
+}
+
 const fmtDate=(s)=>{ if(!s) return "-"; const d=new Date(s); return isNaN(d)?s:d.toLocaleDateString("id-ID",{day:"2-digit",month:"short",year:"numeric"}); };
 const parseMoney=(s)=>parseFloat(String(s).replace(/[^0-9]/g,""))||0;
 const toMoneyStr=(n)=>n?Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,".") : "";
@@ -524,6 +543,110 @@ function ForgotPasswordModal({ onClose }) {
   );
 }
 
+// ─── IMAGE VIEWER MODAL ──────────────────────────────────────────────────────
+function ImageViewerModal({ url, name, onClose }) {
+  const isPdf = name && name.toLowerCase().endsWith(".pdf");
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:3000,display:"flex",alignItems:"center",
+      justifyContent:"center",background:"rgba(0,0,0,.85)",backdropFilter:"blur(12px)",
+      animation:"fadeIn .2s ease",padding:16}} onClick={onClose}>
+      <div style={{position:"relative",maxWidth:"90vw",maxHeight:"90vh",
+        animation:"fadeUp .25s ease"}} onClick={e=>e.stopPropagation()}>
+        {/* Header */}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+          marginBottom:10,padding:"0 4px"}}>
+          <span style={{fontSize:13,color:"#94A3B8",fontWeight:500,
+            maxWidth:300,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+            📎 {name||"Bukti Transfer"}
+          </span>
+          <div style={{display:"flex",gap:8}}>
+            <a href={url} target="_blank" rel="noreferrer"
+              style={{padding:"5px 12px",borderRadius:7,border:"1px solid rgba(99,102,241,.3)",
+                background:"rgba(99,102,241,.1)",color:"#818CF8",fontSize:12,fontWeight:600,
+                textDecoration:"none",cursor:"pointer"}}>
+              ↗ Buka Tab Baru
+            </a>
+            <button onClick={onClose} style={{width:30,height:30,borderRadius:8,border:"1px solid rgba(255,255,255,.15)",
+              background:"rgba(255,255,255,.06)",color:"#94A3B8",cursor:"pointer",fontSize:16,
+              display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+          </div>
+        </div>
+        {/* Content */}
+        {isPdf ? (
+          <div style={{background:"#0D1117",borderRadius:12,padding:32,textAlign:"center",
+            border:"1px solid rgba(255,255,255,.08)",minWidth:280}}>
+            <div style={{fontSize:64,marginBottom:16}}>📄</div>
+            <p style={{fontSize:14,color:"#CBD5E1",fontWeight:600,marginBottom:8}}>{name}</p>
+            <p style={{fontSize:12,color:"#475569",marginBottom:20}}>File PDF tidak bisa dipreview langsung.</p>
+            <a href={url} target="_blank" rel="noreferrer"
+              style={{display:"inline-block",padding:"10px 20px",borderRadius:9,border:"none",
+                background:"linear-gradient(135deg,#6366F1,#4F46E5)",color:"#fff",
+                fontSize:13,fontWeight:700,textDecoration:"none"}}>
+              Buka PDF →
+            </a>
+          </div>
+        ) : (
+          <img src={url} alt={name||"bukti"}
+            style={{maxWidth:"85vw",maxHeight:"80vh",borderRadius:12,objectFit:"contain",
+              boxShadow:"0 24px 80px rgba(0,0,0,.6)",display:"block"}}/>
+        )}
+        {/* Close hint */}
+        <p style={{textAlign:"center",fontSize:11,color:"#334155",marginTop:10}}>
+          Klik di luar gambar untuk menutup
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── BUKTI THUMB — komponen thumbnail klikable ────────────────────────────────
+function BuktiThumb({ buktiName, buktiUrl, color="#6366F1" }) {
+  const [show, setShow] = useState(false);
+  if (!buktiName) return (
+    <div style={{background:"rgba(255,255,255,.02)",border:"1px dashed rgba(255,255,255,.08)",
+      borderRadius:10,padding:"10px 14px",minWidth:140,textAlign:"center"}}>
+      <div style={{fontSize:9,color:"#334155",letterSpacing:".07em",textTransform:"uppercase",marginBottom:6}}>Bukti</div>
+      <div style={{fontSize:22,marginBottom:4,opacity:.3}}>📎</div>
+      <div style={{fontSize:11,color:"#334155"}}>Tidak ada bukti</div>
+    </div>
+  );
+
+  const isImg = /\.(jpg|jpeg|png|gif|webp)$/i.test(buktiName);
+  const hasPrev = !!buktiUrl;
+
+  return (
+    <>
+      <div onClick={hasPrev?()=>setShow(true):undefined}
+        style={{background:`${color}08`,border:`1px solid ${color}25`,
+          borderRadius:10,padding:"10px 14px",minWidth:160,textAlign:"center",
+          cursor:hasPrev?"pointer":"default",transition:"all .15s",position:"relative"}}
+        onMouseEnter={e=>{if(hasPrev)e.currentTarget.style.background=`${color}18`;}}
+        onMouseLeave={e=>{e.currentTarget.style.background=`${color}08`;}}>
+        <div style={{fontSize:9,color:"#475569",letterSpacing:".07em",textTransform:"uppercase",marginBottom:6}}>Bukti Transfer</div>
+        {hasPrev && isImg ? (
+          <img src={buktiUrl} alt="bukti"
+            style={{width:"100%",maxHeight:80,objectFit:"cover",borderRadius:6,marginBottom:6}}/>
+        ) : (
+          <div style={{fontSize:28,marginBottom:6}}>{isImg?"🖼️":"📄"}</div>
+        )}
+        <div style={{fontSize:11,color,fontWeight:600,wordBreak:"break-word",
+          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:140}}>
+          {buktiName}
+        </div>
+        {hasPrev && (
+          <div style={{fontSize:10,color:"#475569",marginTop:4,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
+            <span>🔍</span> Klik untuk lihat
+          </div>
+        )}
+        {!hasPrev && (
+          <div style={{fontSize:10,color:"#334155",marginTop:4}}>Nama tersimpan</div>
+        )}
+      </div>
+      {show && <ImageViewerModal url={buktiUrl} name={buktiName} onClose={()=>setShow(false)}/>}
+    </>
+  );
+}
+
 // ─── CHANGE PASSWORD MODAL ───────────────────────────────────────────────────
 function ChangePasswordModal({ user, onClose }) {
   const [oldPass,  setOldPass]  = useState("");
@@ -834,7 +957,7 @@ _Lariz Property_`
 
   const handleConfirm = async () => {
     setLoading(true);
-    await onConfirm({agent:agent.id,jumlah:num,keterangan:ket||`Transfer komisi ${agent.label}`,buktiName:bukti?bukti.name:""});
+    await onConfirm({agent:agent.id,jumlah:num,keterangan:ket||`Transfer komisi ${agent.label}`,buktiName:bukti?bukti.name:"",buktiFile:bukti?.file||null});
     setLoading(false); setStep(3);
   };
 
@@ -1061,9 +1184,9 @@ function TransferUnifiedModal({agent, agData, onConfirmKomisi, onConfirmSaving, 
     setLoading(true);
     const bName = bukti ? bukti.name : "";
     if((tipe==="komisi"||tipe==="both") && numKom>0)
-      await onConfirmKomisi({agent:agent.id, jumlah:numKom, keterangan:ket||`Transfer komisi ${agent.label}`, buktiName:bName});
+      await onConfirmKomisi({agent:agent.id, jumlah:numKom, keterangan:ket||`Transfer komisi ${agent.label}`, buktiName:bName, buktiFile:bukti?.file||null});
     if((tipe==="saving"||tipe==="both") && numSav>0)
-      await onConfirmSaving({agent:agent.id, jumlah:numSav, keterangan:ket||`Tarik saving ${agent.label}`, buktiName:bName});
+      await onConfirmSaving({agent:agent.id, jumlah:numSav, keterangan:ket||`Tarik saving ${agent.label}`, buktiName:bName, buktiFile:bukti?.file||null});
     setLoading(false); setStep(3);
   };
 
@@ -1334,7 +1457,7 @@ function WithdrawModal({agent, saldo, onConfirm, onClose}) {
 
   const handleConfirm = async () => {
     setLoading(true);
-    await onConfirm({ agent: agent.id, jumlah: num, keterangan: ket || `Tarik tabungan ${agent.label}`, buktiName: bukti ? bukti.name : "" });
+    await onConfirm({ agent: agent.id, jumlah: num, keterangan: ket || `Tarik tabungan ${agent.label}`, buktiName: bukti ? bukti.name : "", buktiFile: bukti?.file||null });
     setLoading(false);
     setStep(3);
   };
@@ -1553,9 +1676,26 @@ Bukti transfer terlampir 🙏`}
 function AdminDashboard({user, onLogout, refreshPwdMap}) {
   const [tab,setTab]=useState("overview");
   const [showChangePwd,setShowChangePwd]=useState(false);
-  const [data,setData]=useState(DEMO_TRANS);
+  const [data,setData]=useState([]);
   const [loading,setLoading]=useState(false);
   const [toasts,setToasts]=useState([]);
+
+  // Load data dari GAS saat mount
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res  = await fetch(`${GAS_URL}?action=getAll`);
+      const json = await res.json();
+      if(json.status==="ok") setData(json.records||[]);
+      else addToast("GAS error: "+json.message,"error");
+    } catch(e) {
+      addToast("Gagal memuat data dari server.","error");
+      setData(DEMO_TRANS); // fallback ke demo hanya jika benar-benar tidak bisa konek
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(()=>{ fetchData(); },[]);
   const [transferModal,setTransferModal]=useState(null); // agent obj — unified komisi+saving
   const [filterAgent,setFilterAgent]=useState("all");
 
@@ -1580,20 +1720,21 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
   const promoRecords  = data.filter(r=>r.type==="promo");
   const withdrawRecs  = data.filter(r=>r.type==="withdraw");
 
-  const totalFeeIn   = feeRecords.reduce((s,r)=>s+(parseFloat(r.feeLariz)||0),0);
-  const totalNetComm = feeRecords.reduce((s,r)=>s+(parseFloat(r.netCommission)||0),0);
-  const totalPromoOut= promoRecords.reduce((s,r)=>s+(parseFloat(r.jumlah)||0),0);
-  const totalFeeAgentBT = feeRecords.reduce((s,r)=>s+(parseFloat(r.feeAgentBT)||0),0);
-  const totalWithdraw= withdrawRecs.reduce((s,r)=>s+(parseFloat(r.jumlah)||0),0);
+  const pN = v=>parseFloat(String(v).replace(/[^0-9.-]/g,""))||0;
+  const totalFeeIn   = feeRecords.reduce((s,r)=>s+pN(r.feeLariz),0);
+  const totalNetComm = feeRecords.reduce((s,r)=>s+pN(r.netCommission),0);
+  const totalPromoOut= promoRecords.reduce((s,r)=>s+pN(r.jumlah),0);
+  const totalFeeAgentBT = feeRecords.reduce((s,r)=>s+pN(r.feeAgentBT),0);
+  const totalWithdraw= withdrawRecs.reduce((s,r)=>s+pN(r.jumlah),0);
 
   // Pisahkan: komisi (fee langsung agen) vs saving (BDB per agen)
   const komisiRecs = data.filter(r=>r.type==="komisi");
 
   const agentSaldo = AGENTS.map(ag=>{
-    const totalKomisi      = feeRecords.reduce((s,r)=>s+(parseFloat(r[ag.feeField])||0),0);
-    const totalSaving      = feeRecords.reduce((s,r)=>s+(parseFloat(r[ag.savingField])||0),0);
-    const sudahTransferKom = komisiRecs.filter(w=>w.agent===ag.id).reduce((s,r)=>s+(parseFloat(r.jumlah)||0),0);
-    const sudahTransferSav = withdrawRecs.filter(w=>w.agent===ag.id).reduce((s,r)=>s+(parseFloat(r.jumlah)||0),0);
+    const totalKomisi      = feeRecords.reduce((s,r)=>s+pN(r[ag.feeField]),0);
+    const totalSaving      = feeRecords.reduce((s,r)=>s+pN(r[ag.savingField]),0);
+    const sudahTransferKom = komisiRecs.filter(w=>w.agent===ag.id).reduce((s,r)=>s+pN(r.jumlah),0);
+    const sudahTransferSav = withdrawRecs.filter(w=>w.agent===ag.id).reduce((s,r)=>s+pN(r.jumlah),0);
     const hutangKomisi     = totalKomisi - sudahTransferKom;
     const saldoSaving      = totalSaving - sudahTransferSav;
     return { ...ag, totalKomisi, totalSaving, sudahTransferKom, sudahTransferSav,
@@ -1607,7 +1748,7 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
   const totalHutangKom = agentSaldo.reduce((s,a)=>s+a.hutangKomisi,0);
 
   // Saldo BDB murni = opBdb - pengeluaran promo
-  const totalOpBdb = feeRecords.reduce((s,r)=>s+(parseFloat(r.opBdb)||0),0);
+  const totalOpBdb = feeRecords.reduce((s,r)=>s+pN(r.opBdb),0);
   const saldoBDB   = totalOpBdb - totalPromoOut;
 
 
@@ -1633,15 +1774,18 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
     setFeeForm({namaDev:"",namaKonsumen:"",tanggal:new Date().toISOString().split("T")[0],feeLariz:"",promo:"",feeAgentBT:"",keterangan:""});
     addToast("Fee berhasil disimpan!");
     setSavingFee(false); setTab("overview");
+    // Refresh dari GAS untuk sinkronisasi
+    setTimeout(()=>fetchData(), 1500);
   };
 
   // Save promo
   const savePromo=async()=>{
     if(!promoForm.keterangan||!promoForm.jumlah){addToast("Keterangan & jumlah wajib diisi!","error");return;}
     setSavingPromo(true);
+    const buktiUrl = promoBukti ? await uploadBuktiToGAS(promoBukti.file) : "";
     const newRec={id:"p"+Date.now(),type:"promo",tanggal:promoForm.tanggal,
       keterangan:promoForm.keterangan,jumlah:parseMoney(promoForm.jumlah),
-      buktiName:promoBukti?promoBukti.name:""};
+      buktiName:promoBukti?promoBukti.name:"", buktiUrl};
     try {
       await fetch(GAS_URL,{method:"POST",body:JSON.stringify({action:"addPromo",...newRec})});
     } catch{}
@@ -1673,8 +1817,9 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
 
   // Transfer komisi agen
 
-  const handleTransferKomisi=async({agent,jumlah,keterangan,buktiName=""})=>{
-    const newRec={id:"k"+Date.now(),type:"komisi",tanggal:new Date().toISOString().split("T")[0],agent,jumlah,keterangan,buktiName};
+  const handleTransferKomisi=async({agent,jumlah,keterangan,buktiName="",buktiFile=null})=>{
+    const buktiUrl = buktiFile ? await uploadBuktiToGAS(buktiFile) : "";
+    const newRec={id:"k"+Date.now(),type:"komisi",tanggal:new Date().toISOString().split("T")[0],agent,jumlah,keterangan,buktiName,buktiUrl};
     try{ await fetch(GAS_URL,{method:"POST",body:JSON.stringify({action:"addKomisi",...newRec})}); }catch{}
     setData(d=>[newRec,...d]);
     addToast(`Transfer komisi ${agent} berhasil dicatat!`);
@@ -2151,8 +2296,11 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
                         <div style={{display:"flex",alignItems:"center",gap:8,marginTop:2}}>
                           <p style={{fontSize:10,color:"#334155"}}>{fmtDate(r.tanggal)}</p>
                           {r.buktiName && (
-                            <span style={{fontSize:10,color:"#475569",display:"flex",alignItems:"center",gap:3}}>
+                            <span onClick={()=>r.buktiUrl&&window.open(r.buktiUrl,"_blank")}
+                              style={{fontSize:10,color:"#F87171",display:"flex",alignItems:"center",gap:3,
+                                cursor:r.buktiUrl?"pointer":"default",textDecoration:r.buktiUrl?"underline":"none"}}>
                               📎 {r.buktiName.length>15?r.buktiName.slice(0,15)+"...":r.buktiName}
+                              {r.buktiUrl&&<span style={{fontSize:9}}>🔍</span>}
                             </span>
                           )}
                         </div>
@@ -2296,26 +2444,27 @@ function EditRecordModal({rec, onSave, onClose}) {
 function SaldoTable({ data, agentSaldo, filterAgent, onDelete, onEdit }) {
   const [checked, setChecked] = useState({});
   const [hoverId, setHoverId] = useState(null);
+  const n = v => parseFloat(String(v).replace(/[^0-9.-]/g,""))||0; // safe parse from GAS string
 
   const rows = data.map(r => {
     if(r.type==="fee") return {
       id:r.id, tanggal:r.tanggal, desc:`${r.namaDev} / ${r.namaKonsumen}`, type:"fee",
-      in:parseFloat(r.feeLariz)||0,
-      out:parseFloat(r.feeAgentBT)||0,
-      net:parseFloat(r.netCommission)||0,
+      in:n(r.feeLariz),
+      out:n(r.feeAgentBT),
+      net:n(r.netCommission),
       color:"#34D399", badge:"FEE", raw:r,
     };
     if(r.type==="promo") return {
       id:r.id, tanggal:r.tanggal, desc:r.keterangan, type:"promo",
-      in:0, out:parseFloat(r.jumlah)||0, net:-(parseFloat(r.jumlah)||0), color:"#F87171", badge:"PROMO", raw:r,
+      in:0, out:n(r.jumlah), net:-n(r.jumlah), color:"#F87171", badge:"PROMO", raw:r,
     };
     if(r.type==="withdraw") return {
       id:r.id, tanggal:r.tanggal, desc:`Tarik Saving — ${r.agent?.charAt(0).toUpperCase()+r.agent?.slice(1)}`, type:"withdraw",
-      in:0, out:parseFloat(r.jumlah)||0, net:-(parseFloat(r.jumlah)||0), color:"#F59E0B", badge:"SAVING", raw:r,
+      in:0, out:n(r.jumlah), net:-n(r.jumlah), color:"#F59E0B", badge:"SAVING", raw:r,
     };
     if(r.type==="komisi") return {
       id:r.id, tanggal:r.tanggal, desc:`Transfer Komisi — ${r.agent?.charAt(0).toUpperCase()+r.agent?.slice(1)}`, type:"komisi",
-      in:0, out:parseFloat(r.jumlah)||0, net:-(parseFloat(r.jumlah)||0), color:"#F87171", badge:"KOMISI", raw:r,
+      in:0, out:n(r.jumlah), net:-n(r.jumlah), color:"#F87171", badge:"KOMISI", raw:r,
     };
     return null;
   }).filter(Boolean);
@@ -2706,22 +2855,7 @@ function FullHistoryTable({ data, agents, onDelete, onEdit }) {
                                   ))}
                                 </div>
                                 {/* Bukti/nota */}
-                                {r.buktiName ? (
-                                  <div style={{background:"rgba(255,255,255,.03)",border:"1px solid rgba(248,113,113,.15)",
-                                    borderRadius:10,padding:"10px 14px",minWidth:160,textAlign:"center"}}>
-                                    <div style={{fontSize:9,color:"#334155",letterSpacing:".07em",textTransform:"uppercase",marginBottom:6}}>Nota / Bukti</div>
-                                    <div style={{fontSize:28,marginBottom:4}}>🧾</div>
-                                    <div style={{fontSize:11,color:"#F87171",fontWeight:600,wordBreak:"break-word"}}>{r.buktiName}</div>
-                                    <div style={{fontSize:10,color:"#334155",marginTop:4}}>File tersimpan</div>
-                                  </div>
-                                ) : (
-                                  <div style={{background:"rgba(255,255,255,.02)",border:"1px dashed rgba(255,255,255,.08)",
-                                    borderRadius:10,padding:"10px 14px",minWidth:140,textAlign:"center"}}>
-                                    <div style={{fontSize:9,color:"#334155",letterSpacing:".07em",textTransform:"uppercase",marginBottom:6}}>Nota / Bukti</div>
-                                    <div style={{fontSize:22,marginBottom:4,opacity:.3}}>🧾</div>
-                                    <div style={{fontSize:11,color:"#334155"}}>Tidak ada bukti</div>
-                                  </div>
-                                )}
+                                <BuktiThumb buktiName={r.buktiName} buktiUrl={r.buktiUrl} color="#F87171"/>
                               </div>
                             )}
 
@@ -2742,22 +2876,7 @@ function FullHistoryTable({ data, agents, onDelete, onEdit }) {
                                   ))}
                                 </div>
                                 {/* Bukti transfer */}
-                                {r.buktiName ? (
-                                  <div style={{background:"rgba(255,255,255,.03)",border:`1px solid ${ag?.color||"#F59E0B"}25`,
-                                    borderRadius:10,padding:"10px 14px",minWidth:160,textAlign:"center"}}>
-                                    <div style={{fontSize:9,color:"#334155",letterSpacing:".07em",textTransform:"uppercase",marginBottom:6}}>Bukti Transfer</div>
-                                    <div style={{fontSize:28,marginBottom:4}}>📎</div>
-                                    <div style={{fontSize:11,color:ag?.color||"#F59E0B",fontWeight:600,wordBreak:"break-word"}}>{r.buktiName}</div>
-                                    <div style={{fontSize:10,color:"#334155",marginTop:4}}>File tersimpan</div>
-                                  </div>
-                                ) : (
-                                  <div style={{background:"rgba(255,255,255,.02)",border:"1px dashed rgba(255,255,255,.08)",
-                                    borderRadius:10,padding:"10px 14px",minWidth:140,textAlign:"center"}}>
-                                    <div style={{fontSize:9,color:"#334155",letterSpacing:".07em",textTransform:"uppercase",marginBottom:6}}>Bukti Transfer</div>
-                                    <div style={{fontSize:22,marginBottom:4,opacity:.3}}>📎</div>
-                                    <div style={{fontSize:11,color:"#334155"}}>Tidak ada bukti</div>
-                                  </div>
-                                )}
+                                <BuktiThumb buktiName={r.buktiName} buktiUrl={r.buktiUrl} color={ag?.color||"#F59E0B"}/>
                               </div>
                             )}
 
@@ -2924,11 +3043,19 @@ function WaRequestModal({user, saldo, onClose}) {
 
 function AgenDashboard({user, onLogout, refreshPwdMap}) {
   const [data,setData]=useState(DEMO_TRANS);
-  const [showChangePwd,setShowChangePwd]=useState(false);
+  const [data,setData]=useState([]);
   const [search,setSearch]=useState("");
   const [sortCol,setSortCol]=useState("tanggal");
   const [sortDir,setSortDir]=useState("desc");
   const [showWaModal,setShowWaModal]=useState(false);
+
+
+  useEffect(()=>{
+    fetch(`${GAS_URL}?action=getAll`)
+      .then(r=>r.json())
+      .then(d=>{ if(d.status==="ok") setData(d.records||[]); })
+      .catch(()=>setData(DEMO_TRANS));
+  },[]);
 
   const feeRecs=data.filter(r=>r.type==="fee");
   const withdrawRecs=data.filter(r=>r.type==="withdraw" && r.agent===user.id);
