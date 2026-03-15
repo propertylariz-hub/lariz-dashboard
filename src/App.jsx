@@ -1094,6 +1094,7 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
   const totalFeeIn   = feeRecords.reduce((s,r)=>s+(parseFloat(r.feeLariz)||0),0);
   const totalNetComm = feeRecords.reduce((s,r)=>s+(parseFloat(r.netCommission)||0),0);
   const totalPromoOut= promoRecords.reduce((s,r)=>s+(parseFloat(r.jumlah)||0),0);
+  const totalFeeAgentBT = feeRecords.reduce((s,r)=>s+(parseFloat(r.feeAgentBT)||0),0);
   const totalWithdraw= withdrawRecs.reduce((s,r)=>s+(parseFloat(r.jumlah)||0),0);
 
   // Saldo agen = total saving dari fee - withdraw
@@ -1271,9 +1272,9 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
             {/* Top KPI Cards */}
             <div className="grid-4 section-gap" style={{marginBottom:28}}>
               {[
-                {label:"Total Fee Masuk",  value:totalFeeIn,   color:"#34D399", icon:"📥", sub:`${feeRecords.length} transaksi`},
-                {label:"Net Commission",   value:totalNetComm, color:"#6366F1", icon:"✅", sub:"setelah promo & co-broke"},
-                {label:"Total Pengeluaran",value:totalPromoOut,color:"#F87171", icon:"📤", sub:`${promoRecords.length} item`},
+                {label:"Total Fee Masuk",  value:totalFeeIn,   color:"#34D399", icon:"📥", sub:`${feeRecords.length} transaksi (gross)`},
+                {label:"Net Commission",   value:totalNetComm, color:"#6366F1", icon:"✅", sub:"setelah co-broke"},
+                {label:"Total Pengeluaran",value:totalPromoOut+totalFeeAgentBT,color:"#F87171", icon:"📤", sub:`${promoRecords.length} promo + co-broke`},
                 {label:"Total Saldo Agen", value:totalSaldoAll,color:"#F59E0B", icon:"🏦", sub:"semua agen"},
               ].map(c=>(
                 <div key={c.label} style={{background:`${c.color}08`,border:`1px solid ${c.color}20`,borderRadius:14,padding:"18px 20px",position:"relative",overflow:"hidden"}}>
@@ -1772,7 +1773,10 @@ function SaldoTable({ data, agentSaldo, filterAgent, onDelete, onEdit }) {
   const rows = data.map(r => {
     if(r.type==="fee") return {
       id:r.id, tanggal:r.tanggal, desc:`${r.namaDev} / ${r.namaKonsumen}`, type:"fee",
-      in:parseFloat(r.feeLariz)||0, out:0, net:parseFloat(r.netCommission)||0, color:"#34D399", badge:"FEE", raw:r,
+      in:parseFloat(r.feeLariz)||0,
+      out:parseFloat(r.feeAgentBT)||0,
+      net:parseFloat(r.netCommission)||0,
+      color:"#34D399", badge:"FEE", raw:r,
     };
     if(r.type==="promo") return {
       id:r.id, tanggal:r.tanggal, desc:r.keterangan, type:"promo",
@@ -1893,7 +1897,16 @@ function SaldoTable({ data, agentSaldo, filterAgent, onDelete, onEdit }) {
                         background:`${r.color}15`,color:r.color,border:`1px solid ${r.color}30`,whiteSpace:"nowrap"}}>{r.badge}</span>
                     </td>
                     <td style={S.td}><span style={{fontFamily:"'DM Mono',monospace",color:"#34D399",fontWeight:600,whiteSpace:"nowrap"}}>{r.in>0?rp(r.in):"—"}</span></td>
-                    <td style={S.td}><span style={{fontFamily:"'DM Mono',monospace",color:"#F87171",fontWeight:600,whiteSpace:"nowrap"}}>{r.out>0?rp(r.out):"—"}</span></td>
+                    <td style={S.td}>
+                      {r.out>0 ? (
+                        <div>
+                          <span style={{fontFamily:"'DM Mono',monospace",color:"#F87171",fontWeight:600,whiteSpace:"nowrap"}}>{rp(r.out)}</span>
+                          {r.type==="fee" && r.out>0 && (
+                            <div style={{fontSize:9,color:"#475569",marginTop:1,letterSpacing:".05em"}}>Co-Broke</div>
+                          )}
+                        </div>
+                      ) : <span style={{color:"#334155"}}>—</span>}
+                    </td>
                     <td style={S.td}><span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,whiteSpace:"nowrap",
                       color:r.balance>=0?"#6EE7B7":"#FCA5A5"}}>{rp(r.balance)}</span></td>
                     {/* Aksi */}
