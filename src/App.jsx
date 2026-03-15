@@ -14,9 +14,10 @@ async function gasGet(params) {
     const cbName = "__gas_" + Date.now() + "_" + Math.random().toString(36).slice(2);
     const script = document.createElement("script");
 
+    // ✅ Timeout lebih lama untuk mobile (30 detik)
     const timer = setTimeout(() => {
       cleanup();
-      reject(new Error("JSONP timeout — cek deployment GAS"));
+      reject(new Error("Timeout — cek koneksi internet"));
     }, 30000);
 
     function cleanup() {
@@ -25,7 +26,7 @@ async function gasGet(params) {
       if (script.parentNode) script.parentNode.removeChild(script);
     }
 
-   window[cbName] = (data) => { cleanup(); resolve(data); };
+    window[cbName] = (data) => { cleanup(); resolve(data); };
     script.onerror = (e) => { 
       cleanup(); 
       reject(new Error("Gagal terhubung ke server")); 
