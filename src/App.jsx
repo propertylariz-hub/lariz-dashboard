@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
-const GAS_URL = "https://script.google.com/macros/s/AKfycbzcLxAEW6e5rD2hA3V5NgNfPeG1QleutnF7z39cwEO1TEK4Bu_89TW4XYHISsmVG9xKUA/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxhaXCwPf2kIhc9kV2YKK0jTydD1irJfOXl3AIDnoXe64BZdq4Dcvf3oWsp5MBAhDwxpA/exec";
 
 // ─── GAS FETCH HELPERS ────────────────────────────────────────────────────────
 const GAS_URL_BASE = GAS_URL;
