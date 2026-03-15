@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxw14uzMEo_rG0mxccktZYSr_H4ZXpc3gGbQcIyRO3mI3ry6hZmclKbmiF2yrM4NKlENA/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbynanTa7W7Fo0YA-ld7wC-IYHR1QLCyJ4TnQeJRhHhZ7RtVGGMwG5wTlF6GZYyMFDGnEg/exec";
 
 // ─── GAS FETCH HELPERS ────────────────────────────────────────────────────────
 // GET via JSONP — bypass CORS redirect issue pada GAS
