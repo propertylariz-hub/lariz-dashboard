@@ -3,6 +3,40 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 const GAS_URL = "https://script.google.com/macros/s/AKfycbxw14uzMEo_rG0mxccktZYSr_H4ZXpc3gGbQcIyRO3mI3ry6hZmclKbmiF2yrM4NKlENA/exec";
 
+// ─── GAS FETCH HELPERS ────────────────────────────────────────────────────────
+// GET via JSONP — bypass CORS redirect issue pada GAS
+function gasGet(params) {
+  return new Promise((resolve, reject) => {
+    const cbName = "__gasCallback_" + Date.now();
+    const url    = GAS_URL + "?" + Object.keys(params).map(k => k+"="+encodeURIComponent(params[k])).join("&") + "&callback=" + cbName;
+    const script = document.createElement("script");
+    const timer  = setTimeout(() => {
+      cleanup();
+      reject(new Error("GAS timeout"));
+    }, 15000);
+    function cleanup() {
+      clearTimeout(timer);
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+    window[cbName] = (data) => { cleanup(); resolve(data); };
+    script.src = url;
+    script.onerror = () => { cleanup(); reject(new Error("Script load error")); };
+    document.head.appendChild(script);
+  });
+}
+
+// POST via fetch — GAS POST tidak kena CORS issue
+async function gasPost(body) {
+  const res = await fetch(GAS_URL, {
+    method: "POST",
+    redirect: "follow",
+    body: JSON.stringify(body),
+  });
+  const text = await res.text();
+  return JSON.parse(text);
+}
+
 // ─── MD5 ─────────────────────────────────────────────────────────────────────
 function md5(str) {
   function safeAdd(x,y){const l=(x&0xffff)+(y&0xffff);return(((x>>16)+(y>>16)+(l>>16))<<16)|(l&0xffff);}
@@ -93,7 +127,17 @@ const TEAM_PCT = { bdb:0.40, aris:0.225, argo:0.225, darma:0.15 };
 const BDB_PCT  = { operasional:0.70, savingAris:0.10, savingArgo:0.10, savingDarma:0.10 };
 
 // ─── DEMO DATA ────────────────────────────────────────────────────────────────
-const DEMO_TRANS = [];
+const DEMO_TRANS = [
+  { id:"t1", type:"fee",      tanggal:"2026-03-06", namaDev:"MG_6",  namaKonsumen:"SELVI",  feeLariz:29250000, promo:0,       feeAgentBT:8000000,  netCommission:21250000, bdb:8500000,  aris:4781250, argo:4781250, darma:3187500, opBdb:5950000, savingAris:850000,  savingArgo:850000,  savingDarma:850000,  keterangan:"" },
+  { id:"t2", type:"fee",      tanggal:"2026-02-18", namaDev:"GR_2",  namaKonsumen:"BUDI S.", feeLariz:35000000, promo:500000,  feeAgentBT:0,        netCommission:34500000, bdb:13800000, aris:7762500, argo:7762500, darma:5175000, opBdb:9660000, savingAris:1380000, savingArgo:1380000, savingDarma:1380000, keterangan:"" },
+  { id:"t3", type:"fee",      tanggal:"2026-01-30", namaDev:"PD_11", namaKonsumen:"SARI W.", feeLariz:22000000, promo:0,       feeAgentBT:5000000,  netCommission:17000000, bdb:6800000,  aris:3825000, argo:3825000, darma:2550000, opBdb:4760000, savingAris:680000,  savingArgo:680000,  savingDarma:680000,  keterangan:"" },
+  { id:"t4", type:"fee",      tanggal:"2025-12-20", namaDev:"BT_7",  namaKonsumen:"RINA H.", feeLariz:18500000, promo:0,       feeAgentBT:0,        netCommission:18500000, bdb:7400000,  aris:4162500, argo:4162500, darma:2775000, opBdb:5180000, savingAris:740000,  savingArgo:740000,  savingDarma:740000,  keterangan:"" },
+  { id:"t5", type:"fee",      tanggal:"2025-11-15", namaDev:"KM_4",  namaKonsumen:"DODI P.", feeLariz:41000000, promo:1000000, feeAgentBT:3000000,  netCommission:37000000, bdb:14800000, aris:8325000, argo:8325000, darma:5550000, opBdb:10360000,savingAris:1480000, savingArgo:1480000, savingDarma:1480000, keterangan:"" },
+  { id:"w1", type:"withdraw", tanggal:"2026-03-01", agent:"aris",  jumlah:3000000,  keterangan:"Tarik saving Maret" },
+  { id:"w2", type:"withdraw", tanggal:"2026-02-01", agent:"argo",  jumlah:2500000,  keterangan:"Tarik saving Feb" },
+  { id:"p1", type:"promo",    tanggal:"2026-03-10", keterangan:"ATK & Operasional Kantor", jumlah:450000 },
+  { id:"p2", type:"promo",    tanggal:"2026-02-25", keterangan:"Print Brosur", jumlah:200000 },
+];
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
 const rp    = (n) => "Rp\u00A0" + Math.round(n||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g,".");
@@ -325,8 +369,7 @@ function ForgotPasswordModal({ onClose }) {
     if (otp.length !== 6) { setError("OTP harus 6 digit."); return; }
     setError(""); setLoading(true);
     try {
-      const res  = await fetch(GAS_URL, { method:"POST", body: JSON.stringify({ action:"verifyOTP", username, otp }) });
-      const data = await res.json();
+      const data = await gasPost({ action:"verifyOTP", username, otp });
       if (data.status === "ok") { setStep(3); }
       else { setError(data.message || "OTP salah."); }
     } catch {
@@ -344,7 +387,7 @@ function ForgotPasswordModal({ onClose }) {
     // Simpan ke localStorage dulu
     savePasswordHash(username, hash);
     try {
-      await fetch(GAS_URL, { method:"POST", body: JSON.stringify({ action:"resetPassword", username, hash }) });
+      await gasPost({ action:"resetPassword", username, hash });
     } catch {}
     setLoading(false);
     setStep(4);
@@ -690,9 +733,7 @@ function ChangePasswordModal({ user, onClose }) {
       savePasswordHash(user.username, hash);
       // Sync ke GAS jika tersedia
       try {
-        fetch(GAS_URL, { method:"POST", body: JSON.stringify({
-          action: "updatePassword", username: user.username, hash
-        })});
+        gasPost({ action:"updatePassword", username:user.username, hash }).catch(()=>{});
       } catch {}
       setLoading(false);
       setSuccess(true);
@@ -1680,37 +1721,23 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
   const [loading,setLoading]=useState(false);
   const [toasts,setToasts]=useState([]);
 
-  // Load data dari GAS saat mount
-  const fetchData = useCallback(async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
-      // GAS GET request — no custom headers agar CORS tidak diblokir
-      const res  = await fetch(`${GAS_URL}?action=getAll`, {
-        method: "GET",
-        redirect: "follow",
-      });
-      const text = await res.text();
-      // GAS kadang return HTML saat belum login — deteksi dan handle
-      if (text.trim().startsWith("<")) {
-        setToasts(t=>[...t,{id:Date.now(),
-          msg:"GAS return HTML — pastikan Deploy: Access = Anyone (not signed in)",type:"error"}]);
-        setLoading(false); return;
-      }
-      const json = JSON.parse(text);
-      if(json.status==="ok") {
-        console.log("[Lariz] Loaded", (json.records||[]).length, "records from GAS");
-        setData(json.records||[]);
+      const json = await gasGet({ action: "getAll" });
+      if (json.status === "ok") {
+        console.log("[Lariz] Loaded", (json.records||[]).length, "records via JSONP");
+        setData(json.records || []);
       } else {
-        setToasts(t=>[...t,{id:Date.now(),msg:"GAS error: "+json.message,type:"error"}]);
+        console.error("[Lariz] GAS error:", json.message);
       }
     } catch(e) {
-      console.error("[Lariz] fetchData error:", e);
-      setToasts(t=>[...t,{id:Date.now(),msg:"Gagal memuat data: "+e.message,type:"error"}]);
+      console.error("[Lariz] fetchData error:", e.message);
     }
     setLoading(false);
-  }, [setData, setLoading, setToasts]);
+  };
 
-  useEffect(()=>{ fetchData(); },[fetchData]);
+
   const [transferModal,setTransferModal]=useState(null); // agent obj — unified komisi+saving
   const [filterAgent,setFilterAgent]=useState("all");
 
@@ -1783,7 +1810,7 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
     const newRec={id:"t"+Date.now(),type:"fee",tanggal:feeForm.tanggal,namaDev:feeForm.namaDev,
       namaKonsumen:feeForm.namaKonsumen,...feeCalc,keterangan:feeForm.keterangan};
     try {
-      await fetch(GAS_URL,{method:"POST",redirect:"follow",body:JSON.stringify({action:"addFee",...newRec})});
+      await gasPost({action:"addFee",...newRec});
     } catch{}
     setData(d=>[newRec,...d]);
     setFeeForm({namaDev:"",namaKonsumen:"",tanggal:new Date().toISOString().split("T")[0],feeLariz:"",promo:"",feeAgentBT:"",keterangan:""});
@@ -1802,7 +1829,7 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
       keterangan:promoForm.keterangan,jumlah:parseMoney(promoForm.jumlah),
       buktiName:promoBukti?promoBukti.name:"", buktiUrl};
     try {
-      await fetch(GAS_URL,{method:"POST",redirect:"follow",body:JSON.stringify({action:"addPromo",...newRec})});
+      await gasPost({action:"addPromo",...newRec});
     } catch{}
     setData(d=>[newRec,...d]);
     setPromoForm({tanggal:new Date().toISOString().split("T")[0],keterangan:"",jumlah:""});
@@ -1815,7 +1842,7 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
   const handleWithdraw=async({agent,jumlah,keterangan,buktiName=""})=>{
     const newRec={id:"w"+Date.now(),type:"withdraw",tanggal:new Date().toISOString().split("T")[0],agent,jumlah,keterangan,buktiName:buktiName||""};
     try {
-      await fetch(GAS_URL,{method:"POST",redirect:"follow",body:JSON.stringify({action:"addWithdraw",...newRec})});
+      await gasPost({action:"addWithdraw",...newRec});
     } catch{}
     setData(d=>[newRec,...d]);
     addToast(`Tarik tabungan ${agent} berhasil dicatat!`);
@@ -1827,7 +1854,7 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
     if(!window.confirm(msg)) return;
     setData(d=>d.filter(r=>!ids.includes(r.id)));
     addToast(isBulk ? `${ids.length} transaksi dihapus.` : "Transaksi dihapus.");
-    ids.forEach(id=>{ try{ fetch(GAS_URL,{method:"POST",body:JSON.stringify({action:"deleteRecord",id})}); }catch{} });
+    ids.forEach(id=>{ try{ gasPost({action:"deleteRecord",id}); }catch{} });
   };
 
   // Transfer komisi agen
@@ -1835,7 +1862,7 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
   const handleTransferKomisi=async({agent,jumlah,keterangan,buktiName="",buktiFile=null})=>{
     const buktiUrl = buktiFile ? await uploadBuktiToGAS(buktiFile) : "";
     const newRec={id:"k"+Date.now(),type:"komisi",tanggal:new Date().toISOString().split("T")[0],agent,jumlah,keterangan,buktiName,buktiUrl};
-    try{ await fetch(GAS_URL,{method:"POST",redirect:"follow",body:JSON.stringify({action:"addKomisi",...newRec})}); }catch{}
+    try{ await gasPost({action:"addKomisi",...newRec}); }catch{}
     setData(d=>[newRec,...d]);
     addToast(`Transfer komisi ${agent} berhasil dicatat!`);
   };
@@ -1843,11 +1870,14 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
   // Edit — buka modal edit
   const [editModal,setEditModal]=useState(null);
   const handleEdit=(rec)=>{ setEditModal(rec); };
+
+  // Fetch data saat komponen mount — semua state sudah siap
+  useEffect(() => { fetchData(); }, []); // eslint-disable-line
   const handleEditSave=(updated)=>{
     setData(d=>d.map(r=>r.id===updated.id?{...r,...updated}:r));
     addToast("Transaksi diperbarui!");
     setEditModal(null);
-    try{ fetch(GAS_URL,{method:"POST",body:JSON.stringify({action:"updateRecord",...updated})}); }catch{}
+    try{ gasPost({action:"updateRecord",...updated}); }catch{}
   };
 
   // All transactions sorted by date
@@ -3068,10 +3098,9 @@ function AgenDashboard({user, onLogout, refreshPwdMap}) {
 
 
   useEffect(()=>{
-    fetch(`${GAS_URL}?action=getAll`)
-      .then(r=>r.json())
+    gasGet({ action: "getAll" })
       .then(d=>{ if(d.status==="ok") setData(d.records||[]); })
-      .catch(()=>{}); // jangan fallback ke demo — biarkan kosong
+      .catch(e=>console.error("[Lariz] agen fetch:", e.message));
   },[]);
 
   const feeRecs=data.filter(r=>r.type==="fee");
@@ -3320,8 +3349,7 @@ export default function App() {
   const handleLogout = () => setUser(null);
 
   const refreshPwdMap = () => {
-    fetch(`${GAS_URL}?action=getPasswords`)
-      .then(r => r.json())
+    gasGet({ action: "getPasswords" })
       .then(d => { if (d.passwords) setPwdMap(d.passwords); })
       .catch(() => {});
   };
