@@ -1741,14 +1741,19 @@ export default function App() {
       .finally(()=>setPwdLoaded(true));
   },[]);
 
- const verifyPwd=(username,plaintext)=>{
-  const hash=pwdMap[username]||getPasswordHash(username);
-  const inputHash=md5(plaintext);
-  console.log("username:", username);
-  console.log("input hash:", inputHash);
-  console.log("stored hash:", hash);
-  console.log("match:", inputHash===hash);
-  return inputHash===hash;
+ // Hash default yang sudah pasti benar
+const CORRECT_HASHES = {
+  admin: "0192023a7bbd73250516f069df18b500",
+  aris:  "7e22b8b5e1d9d05fba3d55f5fb13cfe1",
+  argo:  "9b47b77b6e0f41bde74c17bca00bde26",
+  darma: "8d97a21a7e20b9f9e8f3bcef63de4ef4",
+};
+
+// Di App component:
+const verifyPwd=(username,plaintext)=>{
+  // Prioritas: 1) dari GAS, 2) dari CORRECT_HASHES, 3) dari localStorage
+  const stored = pwdMap[username] || CORRECT_HASHES[username] || getPasswordHash(username);
+  return md5(plaintext) === stored;
 };
 
   const refreshPwdMap=()=>{
