@@ -17,7 +17,7 @@ async function gasGet(params) {
     const timer = setTimeout(() => {
       cleanup();
       reject(new Error("JSONP timeout — cek deployment GAS"));
-    }, 15000);
+    }, 30000);
 
     function cleanup() {
       clearTimeout(timer);
@@ -25,9 +25,15 @@ async function gasGet(params) {
       if (script.parentNode) script.parentNode.removeChild(script);
     }
 
-    window[cbName] = (data) => { cleanup(); resolve(data); };
-    script.onerror = () => { cleanup(); reject(new Error("JSONP script error")); };
+   window[cbName] = (data) => { cleanup(); resolve(data); };
+    script.onerror = (e) => { 
+      cleanup(); 
+      reject(new Error("Gagal terhubung ke server")); 
+    };
     script.src = url + "&callback=" + cbName;
+    // ✅ Tambah ini untuk mobile
+    script.async = true;
+    script.crossOrigin = "anonymous";
     document.head.appendChild(script);
   });
 }
