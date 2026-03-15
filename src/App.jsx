@@ -93,17 +93,7 @@ const TEAM_PCT = { bdb:0.40, aris:0.225, argo:0.225, darma:0.15 };
 const BDB_PCT  = { operasional:0.70, savingAris:0.10, savingArgo:0.10, savingDarma:0.10 };
 
 // ─── DEMO DATA ────────────────────────────────────────────────────────────────
-const DEMO_TRANS = [
-  { id:"t1", type:"fee",      tanggal:"2026-03-06", namaDev:"MG_6",  namaKonsumen:"SELVI",  feeLariz:29250000, promo:0,       feeAgentBT:8000000,  netCommission:21250000, bdb:8500000,  aris:4781250, argo:4781250, darma:3187500, opBdb:5950000, savingAris:850000,  savingArgo:850000,  savingDarma:850000,  keterangan:"" },
-  { id:"t2", type:"fee",      tanggal:"2026-02-18", namaDev:"GR_2",  namaKonsumen:"BUDI S.", feeLariz:35000000, promo:500000,  feeAgentBT:0,        netCommission:34500000, bdb:13800000, aris:7762500, argo:7762500, darma:5175000, opBdb:9660000, savingAris:1380000, savingArgo:1380000, savingDarma:1380000, keterangan:"" },
-  { id:"t3", type:"fee",      tanggal:"2026-01-30", namaDev:"PD_11", namaKonsumen:"SARI W.", feeLariz:22000000, promo:0,       feeAgentBT:5000000,  netCommission:17000000, bdb:6800000,  aris:3825000, argo:3825000, darma:2550000, opBdb:4760000, savingAris:680000,  savingArgo:680000,  savingDarma:680000,  keterangan:"" },
-  { id:"t4", type:"fee",      tanggal:"2025-12-20", namaDev:"BT_7",  namaKonsumen:"RINA H.", feeLariz:18500000, promo:0,       feeAgentBT:0,        netCommission:18500000, bdb:7400000,  aris:4162500, argo:4162500, darma:2775000, opBdb:5180000, savingAris:740000,  savingArgo:740000,  savingDarma:740000,  keterangan:"" },
-  { id:"t5", type:"fee",      tanggal:"2025-11-15", namaDev:"KM_4",  namaKonsumen:"DODI P.", feeLariz:41000000, promo:1000000, feeAgentBT:3000000,  netCommission:37000000, bdb:14800000, aris:8325000, argo:8325000, darma:5550000, opBdb:10360000,savingAris:1480000, savingArgo:1480000, savingDarma:1480000, keterangan:"" },
-  { id:"w1", type:"withdraw", tanggal:"2026-03-01", agent:"aris",  jumlah:3000000,  keterangan:"Tarik saving Maret" },
-  { id:"w2", type:"withdraw", tanggal:"2026-02-01", agent:"argo",  jumlah:2500000,  keterangan:"Tarik saving Feb" },
-  { id:"p1", type:"promo",    tanggal:"2026-03-10", keterangan:"ATK & Operasional Kantor", jumlah:450000 },
-  { id:"p2", type:"promo",    tanggal:"2026-02-25", keterangan:"Print Brosur", jumlah:200000 },
-];
+const DEMO_TRANS = [];
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
 const rp    = (n) => "Rp\u00A0" + Math.round(n||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g,".");
