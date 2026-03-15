@@ -792,6 +792,505 @@ function Login({onLogin, verifyPwd}) {
   );
 }
 
+// ─── TRANSFER KOMISI MODAL ───────────────────────────────────────────────────
+function TransferKomisiModal({agent, hutang, onConfirm, onClose}) {
+  const [step,    setStep]   = useState(1); // 1=form, 2=bukti, 3=kirim
+  const [jumlah,  setJumlah] = useState("");
+  const [ket,     setKet]    = useState("");
+  const [bukti,   setBukti]  = useState(null);
+  const [loading, setLoading]= useState(false);
+  const fileRef = useRef();
+
+  const num   = parseMoney(jumlah);
+  const valid = num > 0 && num <= hutang;
+  const tgl   = new Date().toLocaleDateString("id-ID",{day:"2-digit",month:"long",year:"numeric"});
+  const nomFmt= num.toString().replace(/\B(?=(\d{3})+(?!\d))/g,".");
+
+  const waText = encodeURIComponent(
+    `Halo *${agent.label}* 👋
+
+` +
+    `Admin Lariz Property telah mentransfer *komisi* kamu.
+
+` +
+    `📅 Tanggal  : ${tgl}
+` +
+    `👤 Agen     : ${agent.label}
+` +
+    `💰 Komisi   : Rp ${nomFmt}
+` +
+    `📝 Ket      : ${ket||"Transfer komisi"}
+
+` +
+    `Bukti transfer terlampir. Silakan cek rekening kamu 🙏
+
+_Lariz Property_`
+  );
+
+  const handleFile = e => {
+    const f=e.target.files[0];
+    if(f) setBukti({file:f,url:URL.createObjectURL(f),name:f.name});
+  };
+
+  const handleConfirm = async () => {
+    setLoading(true);
+    await onConfirm({agent:agent.id,jumlah:num,keterangan:ket||`Transfer komisi ${agent.label}`,buktiName:bukti?bukti.name:""});
+    setLoading(false); setStep(3);
+  };
+
+  const STEPS = ["Form","Bukti Transfer","Kirim WA"];
+
+  return (
+    <Modal title={`TRANSFER KOMISI — ${agent.label.toUpperCase()}`} onClose={onClose} width={500}>
+      {/* Step indicator */}
+      <div style={{display:"flex",alignItems:"center",marginBottom:20}}>
+        {STEPS.map((s,i)=>{
+          const done=step>i+1, active=step===i+1;
+          return(
+            <div key={s} style={{display:"flex",alignItems:"center",flex:i<2?1:"none"}}>
+              <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
+                <div style={{width:26,height:26,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",
+                  fontSize:11,fontWeight:700,transition:"all .25s",
+                  background:done?"#22C55E":active?"#F87171":"rgba(255,255,255,.06)",
+                  color:done||active?"#fff":"#334155",
+                  border:`2px solid ${done?"#22C55E":active?"#F87171":"rgba(255,255,255,.1)"}`,
+                  boxShadow:active?"0 0 12px rgba(248,113,113,.4)":"none"}}>
+                  {done?"✓":i+1}
+                </div>
+                <span style={{fontSize:9,color:active?"#F87171":done?"#22C55E":"#334155",
+                  letterSpacing:".06em",textTransform:"uppercase",whiteSpace:"nowrap"}}>{s}</span>
+              </div>
+              {i<2&&<div style={{flex:1,height:2,margin:"0 6px",marginBottom:14,borderRadius:1,
+                background:done?"#22C55E":"rgba(255,255,255,.06)",transition:"background .3s"}}/>}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Hutang chip */}
+      <div style={{marginBottom:18,padding:"12px 16px",background:"rgba(248,113,113,.08)",
+        border:"1px solid rgba(248,113,113,.25)",borderRadius:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div>
+          <p style={{fontSize:10,color:"#F87171",letterSpacing:".08em",marginBottom:3,fontWeight:600}}>HUTANG KOMISI TERSISA</p>
+          <p style={{fontFamily:"'DM Mono',monospace",fontSize:20,fontWeight:700,color:"#F87171"}}>{rp(hutang)}</p>
+        </div>
+        <div style={{padding:"4px 10px",borderRadius:99,fontSize:11,fontWeight:700,
+          background:`${agent.color}18`,color:agent.color,border:`1px solid ${agent.color}30`}}>{agent.label}</div>
+      </div>
+
+      {/* STEP 1 */}
+      {step===1&&(
+        <div style={{animation:"fadeUp .2s ease"}}>
+          <div style={{marginBottom:14}}>
+            <label style={S.lbl}>Jumlah Transfer (Rp)</label>
+            <div style={{position:"relative"}}>
+              <span style={{position:"absolute",left:11,top:"50%",transform:"translateY(-50%)",
+                fontSize:12,color:"#475569",fontFamily:"'DM Mono',monospace",fontWeight:600}}>Rp</span>
+              <input value={jumlah}
+                onChange={e=>{const r=e.target.value.replace(/\D/g,"");setJumlah(r?parseInt(r).toString().replace(/\B(?=(\d{3})+(?!\d))/g,"."):""  );}}
+                style={{...S.inp,paddingLeft:32,fontSize:15,fontFamily:"'DM Mono',monospace",fontWeight:700,
+                  borderColor:num>hutang?"rgba(248,113,113,.5)":num>0?"rgba(248,113,113,.5)":"rgba(255,255,255,.09)"}}
+                placeholder="0"/>
+            </div>
+            {num>hutang&&<p style={{fontSize:11,color:"#F87171",marginTop:5}}>⚠ Melebihi hutang ({rp(hutang)})</p>}
+            {num>0&&num<=hutang&&<p style={{fontSize:11,color:"#34D399",marginTop:5}}>✓ Sisa hutang setelah transfer: {rp(hutang-num)}</p>}
+          </div>
+          <div style={{marginBottom:20}}>
+            <label style={S.lbl}>Keterangan</label>
+            <input value={ket} onChange={e=>setKet(e.target.value)} style={S.inp} placeholder={`Transfer komisi ${agent.label}...`}/>
+          </div>
+          <div style={{display:"flex",gap:10}}>
+            <button onClick={onClose} style={{flex:1,padding:"11px",borderRadius:10,
+              border:"1px solid rgba(255,255,255,.1)",background:"transparent",color:"#64748B",fontSize:13,fontWeight:600,cursor:"pointer"}}>Batal</button>
+            <button onClick={()=>setStep(2)} disabled={!valid}
+              style={{flex:2,padding:"11px",borderRadius:10,border:"none",
+                background:valid?"linear-gradient(135deg,#EF4444,#DC2626)":"#1E293B",
+                color:valid?"#fff":"#334155",fontSize:13,fontWeight:700,cursor:valid?"pointer":"not-allowed",
+                boxShadow:valid?"0 4px 16px rgba(239,68,68,.3)":"none",transition:"all .2s"}}>
+              Lanjut → Upload Bukti
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 2 */}
+      {step===2&&(
+        <div style={{animation:"fadeUp .2s ease"}}>
+          <div style={{marginBottom:14,padding:"10px 14px",background:"rgba(255,255,255,.03)",
+            border:"1px solid rgba(255,255,255,.07)",borderRadius:10,display:"flex",justifyContent:"space-between"}}>
+            <span style={{fontSize:12,color:"#64748B"}}>Transfer komisi</span>
+            <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,color:"#F87171",fontSize:14}}>{rp(num)}</span>
+          </div>
+          <label style={S.lbl}>Upload Bukti Transfer</label>
+          <div onClick={()=>fileRef.current.click()}
+            onDrop={e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f)setBukti({file:f,url:URL.createObjectURL(f),name:f.name});}}
+            onDragOver={e=>e.preventDefault()}
+            style={{border:`2px dashed ${bukti?"rgba(248,113,113,.6)":"rgba(255,255,255,.1)"}`,borderRadius:12,
+              padding:"20px 16px",textAlign:"center",cursor:"pointer",transition:"all .2s",marginBottom:14,
+              background:bukti?"rgba(248,113,113,.05)":"rgba(255,255,255,.02)"}}>
+            <input ref={fileRef} type="file" accept="image/*,.pdf" onChange={handleFile} style={{display:"none"}}/>
+            {bukti?(
+              <div>
+                {bukti.file.type.startsWith("image/")?(
+                  <img src={bukti.url} alt="bukti" style={{maxHeight:150,maxWidth:"100%",borderRadius:8,marginBottom:8,objectFit:"contain"}}/>
+                ):<div style={{fontSize:36,marginBottom:8}}>📄</div>}
+                <p style={{fontSize:12,color:"#F87171",fontWeight:600}}>{bukti.name}</p>
+                <p style={{fontSize:11,color:"#475569",marginTop:4}}>Klik untuk ganti</p>
+              </div>
+            ):(
+              <div>
+                <div style={{fontSize:36,marginBottom:8,opacity:.4}}>📎</div>
+                <p style={{fontSize:13,color:"#64748B"}}>Klik atau drag bukti transfer</p>
+                <p style={{fontSize:11,color:"#334155",marginTop:4}}>JPG, PNG, PDF</p>
+              </div>
+            )}
+          </div>
+          <div style={{display:"flex",gap:10}}>
+            <button onClick={()=>setStep(1)} style={{flex:1,padding:"11px",borderRadius:10,
+              border:"1px solid rgba(255,255,255,.1)",background:"transparent",color:"#64748B",fontSize:13,fontWeight:600,cursor:"pointer"}}>← Kembali</button>
+            <button onClick={handleConfirm} disabled={!bukti||loading}
+              style={{flex:2,padding:"11px",borderRadius:10,border:"none",
+                background:bukti&&!loading?"linear-gradient(135deg,#EF4444,#DC2626)":"#1E293B",
+                color:bukti&&!loading?"#fff":"#334155",fontSize:13,fontWeight:700,
+                cursor:bukti&&!loading?"pointer":"not-allowed",transition:"all .2s",
+                boxShadow:bukti&&!loading?"0 4px 16px rgba(239,68,68,.3)":"none"}}>
+              {loading?"⏳ Memproses...":"✓ Konfirmasi & Simpan"}
+            </button>
+          </div>
+          {!bukti&&<p style={{textAlign:"center",fontSize:11,color:"#334155",marginTop:10}}>Upload bukti wajib sebelum konfirmasi</p>}
+        </div>
+      )}
+
+      {/* STEP 3 */}
+      {step===3&&(
+        <div style={{animation:"fadeUp .2s ease",textAlign:"center"}}>
+          <div style={{width:60,height:60,borderRadius:"50%",background:"rgba(34,197,94,.15)",
+            border:"2px solid #22C55E",display:"flex",alignItems:"center",justifyContent:"center",
+            fontSize:26,margin:"0 auto 14px",boxShadow:"0 0 28px rgba(34,197,94,.2)"}}>✓</div>
+          <p style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:".1em",color:"#E2E8F0",marginBottom:4}}>Transfer Dicatat!</p>
+          <p style={{fontSize:12,color:"#475569",marginBottom:18}}>Kirim notifikasi ke {agent.label} via WhatsApp.</p>
+          {/* Preview pesan */}
+          <div style={{marginBottom:16,padding:"12px 14px",background:"rgba(37,211,102,.06)",
+            border:"1px solid rgba(37,211,102,.2)",borderRadius:10,textAlign:"left"}}>
+            <p style={{fontSize:10,color:"#475569",letterSpacing:".08em",marginBottom:8}}>PREVIEW PESAN WA</p>
+            <div style={{fontSize:12,color:"#94A3B8",lineHeight:1.7,fontFamily:"'DM Mono',monospace",whiteSpace:"pre-line"}}>
+              {`Halo `}<strong style={{color:"#E2E8F0"}}>{agent.label}</strong>{` 👋
+
+Admin telah transfer `}<strong style={{color:"#F87171"}}>{`Rp ${nomFmt}`}</strong>{`
+📅 ${tgl} · ${ket||"Transfer komisi"}`}
+            </div>
+          </div>
+          {bukti&&bukti.file.type.startsWith("image/")&&(
+            <div style={{marginBottom:14,padding:8,background:"rgba(255,255,255,.03)",borderRadius:10,border:"1px solid rgba(255,255,255,.07)"}}>
+              <img src={bukti.url} alt="bukti" style={{maxHeight:100,maxWidth:"100%",borderRadius:6,objectFit:"contain"}}/>
+            </div>
+          )}
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            <button onClick={()=>window.open(`https://wa.me/${agent.wa}?text=${waText}`,"_blank")}
+              style={{width:"100%",padding:"13px",borderRadius:11,border:"none",
+                background:"linear-gradient(135deg,#25D366,#128C7E)",color:"#fff",
+                fontSize:14,fontWeight:700,cursor:"pointer",
+                display:"flex",alignItems:"center",justifyContent:"center",gap:8,
+                boxShadow:"0 4px 20px rgba(37,211,102,.35)"}}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                <path d="M12 0C5.373 0 0 5.373 0 12c0 2.124.558 4.118 1.531 5.845L.057 23.55a.75.75 0 0 0 .916.919l5.808-1.453A11.946 11.946 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75a9.75 9.75 0 0 1-4.96-1.36l-.355-.212-3.684.921.958-3.591-.232-.37A9.75 9.75 0 1 1 12 21.75z"/>
+              </svg>
+              Kirim WA ke {agent.label}
+            </button>
+            <p style={{fontSize:10,color:"#1E293B"}}>{agent.waDisplay}</p>
+            <button onClick={onClose} style={{width:"100%",padding:"9px",borderRadius:10,
+              border:"1px solid rgba(255,255,255,.08)",background:"transparent",
+              color:"#475569",fontSize:12,fontWeight:600,cursor:"pointer"}}>Tutup</button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+// ─── TRANSFER UNIFIED MODAL (Komisi + Saving) ────────────────────────────────
+function TransferUnifiedModal({agent, agData, onConfirmKomisi, onConfirmSaving, onClose}) {
+  // tipe: "komisi" | "saving" | "both"
+  const [tipe,    setTipe]   = useState(
+    agData?.hutangKomisi>0 && agData?.saldoSaving>0 ? "both"
+    : agData?.hutangKomisi>0 ? "komisi" : "saving"
+  );
+  const [step,    setStep]   = useState(1); // 1=form, 2=bukti, 3=kirim
+  const [jKomisi, setJKomisi]= useState("");
+  const [jSaving, setJSaving]= useState("");
+  const [ket,     setKet]    = useState("");
+  const [bukti,   setBukti]  = useState(null);
+  const [loading, setLoading]= useState(false);
+  const fileRef = useRef();
+
+  const hutang  = agData?.hutangKomisi || 0;
+  const saldo   = agData?.saldoSaving  || 0;
+  const numKom  = parseMoney(jKomisi);
+  const numSav  = parseMoney(jSaving);
+
+  const validKom = tipe==="saving" ? true  : numKom>0 && numKom<=hutang;
+  const validSav = tipe==="komisi" ? true  : numSav>0 && numSav<=saldo;
+  const valid    = validKom && validSav && (tipe==="both" ? numKom>0||numSav>0 : true);
+
+  const tgl    = new Date().toLocaleDateString("id-ID",{day:"2-digit",month:"long",year:"numeric"});
+  const fmtN   = n => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,".");
+
+  const waLines = [
+    `Halo *${agent.label}* 👋`,
+    ``,
+    `Admin Lariz Property telah melakukan transfer:`,
+    ``
+  ];
+  if((tipe==="komisi"||tipe==="both") && numKom>0)
+    waLines.push(`💸 Komisi   : *Rp ${fmtN(numKom)}*`);
+  if((tipe==="saving"||tipe==="both") && numSav>0)
+    waLines.push(`🏦 Saving   : *Rp ${fmtN(numSav)}*`);
+  waLines.push(`📅 Tanggal  : ${tgl}`);
+  if(ket) waLines.push(`📝 Ket      : ${ket}`);
+  waLines.push(``, `Bukti terlampir. Silakan cek rekening 🙏`, `_Lariz Property_`);
+  const waText = encodeURIComponent(waLines.join("
+"));
+
+  const handleFile = e => {
+    const f=e.target.files[0];
+    if(f) setBukti({file:f,url:URL.createObjectURL(f),name:f.name});
+  };
+
+  const handleConfirm = async () => {
+    setLoading(true);
+    const bName = bukti ? bukti.name : "";
+    if((tipe==="komisi"||tipe==="both") && numKom>0)
+      await onConfirmKomisi({agent:agent.id, jumlah:numKom, keterangan:ket||`Transfer komisi ${agent.label}`, buktiName:bName});
+    if((tipe==="saving"||tipe==="both") && numSav>0)
+      await onConfirmSaving({agent:agent.id, jumlah:numSav, keterangan:ket||`Tarik saving ${agent.label}`, buktiName:bName});
+    setLoading(false); setStep(3);
+  };
+
+  const STEPS = ["Form","Bukti Transfer","Kirim WA"];
+  const MonInput = ({label,value,onChange,max,color}) => (
+    <div style={{marginBottom:12}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+        <label style={S.lbl}>{label}</label>
+        <span style={{fontSize:10,color:"#475569"}}>maks {rp(max)}</span>
+      </div>
+      <div style={{position:"relative"}}>
+        <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:11,color:"#475569",fontFamily:"'DM Mono',monospace"}}>Rp</span>
+        <input value={value}
+          onChange={e=>{const r=e.target.value.replace(/\D/g,"");onChange(r?parseInt(r).toString().replace(/\B(?=(\d{3})+(?!\d))/g,"."):""  );}}
+          placeholder="0"
+          style={{...S.inp,paddingLeft:28,fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:14,
+            borderColor:parseMoney(value)>max?"rgba(248,113,113,.5)":parseMoney(value)>0?`${color}50`:"rgba(255,255,255,.09)"}}/>
+      </div>
+      {parseMoney(value)>max && <p style={{fontSize:10,color:"#F87171",marginTop:3}}>⚠ Melebihi batas</p>}
+      {parseMoney(value)>0 && parseMoney(value)<=max && <p style={{fontSize:10,color:"#34D399",marginTop:3}}>✓ Sisa: {rp(max-parseMoney(value))}</p>}
+    </div>
+  );
+
+  return (
+    <Modal title={`TRANSFER — ${agent.label.toUpperCase()}`} onClose={onClose} width={500}>
+      {/* Step indicator */}
+      <div style={{display:"flex",alignItems:"center",marginBottom:20}}>
+        {STEPS.map((s,i)=>{
+          const done=step>i+1, active=step===i+1;
+          return(
+            <div key={s} style={{display:"flex",alignItems:"center",flex:i<2?1:"none"}}>
+              <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
+                <div style={{width:26,height:26,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",
+                  fontSize:11,fontWeight:700,transition:"all .25s",
+                  background:done?"#22C55E":active?agent.color:"rgba(255,255,255,.06)",
+                  color:done||active?"#000":"#334155",
+                  border:`2px solid ${done?"#22C55E":active?agent.color:"rgba(255,255,255,.1)"}`,
+                  boxShadow:active?`0 0 12px ${agent.color}50`:"none"}}>
+                  {done?"✓":i+1}
+                </div>
+                <span style={{fontSize:9,color:active?agent.color:done?"#22C55E":"#334155",
+                  letterSpacing:".06em",textTransform:"uppercase",whiteSpace:"nowrap"}}>{s}</span>
+              </div>
+              {i<2&&<div style={{flex:1,height:2,margin:"0 6px",marginBottom:14,borderRadius:1,
+                background:done?"#22C55E":"rgba(255,255,255,.06)"}}/>}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* STEP 1 — Form */}
+      {step===1&&(
+        <div style={{animation:"fadeUp .2s ease"}}>
+          {/* Tipe selector */}
+          <div style={{display:"flex",gap:6,marginBottom:18}}>
+            {[
+              {v:"komisi", label:"💸 Komisi", disabled:hutang<=0},
+              {v:"saving",  label:"🏦 Saving",  disabled:saldo<=0},
+              {v:"both",    label:"💸+🏦 Keduanya", disabled:hutang<=0||saldo<=0},
+            ].map(t=>(
+              <button key={t.v} onClick={()=>!t.disabled&&setTipe(t.v)}
+                disabled={t.disabled}
+                style={{flex:1,padding:"8px 6px",borderRadius:9,border:"none",fontSize:11,fontWeight:700,
+                  cursor:t.disabled?"not-allowed":"pointer",transition:"all .15s",
+                  background:tipe===t.v?`${agent.color}20`:"rgba(255,255,255,.04)",
+                  color:tipe===t.v?agent.color:t.disabled?"#1E293B":"#475569",
+                  borderBottom:`2px solid ${tipe===t.v?agent.color:"transparent"}`}}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Inputs */}
+          {(tipe==="komisi"||tipe==="both") && (
+            <div style={{padding:"12px",background:"rgba(248,113,113,.06)",border:"1px solid rgba(248,113,113,.15)",borderRadius:10,marginBottom:12}}>
+              <MonInput label="Jumlah Komisi (Rp)" value={jKomisi} onChange={setJKomisi} max={hutang} color="#F87171"/>
+            </div>
+          )}
+          {(tipe==="saving"||tipe==="both") && (
+            <div style={{padding:"12px",background:`${agent.color}08`,border:`1px solid ${agent.color}20`,borderRadius:10,marginBottom:12}}>
+              <MonInput label="Jumlah Saving (Rp)" value={jSaving} onChange={setJSaving} max={saldo} color={agent.color}/>
+            </div>
+          )}
+
+          {/* Total */}
+          {(numKom>0||numSav>0) && (
+            <div style={{padding:"10px 14px",background:"rgba(255,255,255,.03)",borderRadius:9,
+              display:"flex",justifyContent:"space-between",marginBottom:14}}>
+              <span style={{fontSize:12,color:"#475569"}}>Total Transfer</span>
+              <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,color:agent.color,fontSize:14}}>
+                {rp(numKom+numSav)}
+              </span>
+            </div>
+          )}
+
+          <div style={{marginBottom:16}}>
+            <label style={S.lbl}>Keterangan (opsional)</label>
+            <input value={ket} onChange={e=>setKet(e.target.value)} style={S.inp}
+              placeholder={tipe==="both"?"Transfer komisi & saving...":tipe==="komisi"?"Transfer komisi...":"Tarik saving..."}/>
+          </div>
+
+          <div style={{display:"flex",gap:10}}>
+            <button onClick={onClose} style={{flex:1,padding:"11px",borderRadius:10,
+              border:"1px solid rgba(255,255,255,.1)",background:"transparent",color:"#64748B",fontSize:13,fontWeight:600,cursor:"pointer"}}>Batal</button>
+            <button onClick={()=>setStep(2)} disabled={!valid}
+              style={{flex:2,padding:"11px",borderRadius:10,border:"none",
+                background:valid?`linear-gradient(135deg,${agent.color},${agent.color}CC)`:"#1E293B",
+                color:valid?"#000":"#334155",fontSize:13,fontWeight:700,cursor:valid?"pointer":"not-allowed",
+                boxShadow:valid?`0 4px 16px ${agent.color}30`:"none",transition:"all .2s"}}>
+              Lanjut → Upload Bukti
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 2 — Bukti */}
+      {step===2&&(
+        <div style={{animation:"fadeUp .2s ease"}}>
+          {/* Ringkasan */}
+          <div style={{marginBottom:14,padding:"10px 14px",background:"rgba(255,255,255,.03)",
+            border:"1px solid rgba(255,255,255,.07)",borderRadius:10}}>
+            {numKom>0&&<div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+              <span style={{fontSize:12,color:"#64748B"}}>Komisi</span>
+              <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,color:"#F87171"}}>{rp(numKom)}</span>
+            </div>}
+            {numSav>0&&<div style={{display:"flex",justifyContent:"space-between"}}>
+              <span style={{fontSize:12,color:"#64748B"}}>Saving</span>
+              <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,color:agent.color}}>{rp(numSav)}</span>
+            </div>}
+            {numKom>0&&numSav>0&&<div style={{borderTop:"1px solid rgba(255,255,255,.07)",marginTop:6,paddingTop:6,
+              display:"flex",justifyContent:"space-between"}}>
+              <span style={{fontSize:12,color:"#64748B",fontWeight:600}}>Total</span>
+              <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,color:"#E2E8F0",fontSize:14}}>{rp(numKom+numSav)}</span>
+            </div>}
+          </div>
+          <label style={S.lbl}>Upload Bukti Transfer</label>
+          <div onClick={()=>fileRef.current.click()}
+            onDrop={e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f)setBukti({file:f,url:URL.createObjectURL(f),name:f.name});}}
+            onDragOver={e=>e.preventDefault()}
+            style={{border:`2px dashed ${bukti?agent.color:"rgba(255,255,255,.1)"}`,borderRadius:12,
+              padding:"20px 16px",textAlign:"center",cursor:"pointer",transition:"all .2s",marginBottom:14,
+              background:bukti?`${agent.color}06`:"rgba(255,255,255,.02)"}}>
+            <input ref={fileRef} type="file" accept="image/*,.pdf" onChange={handleFile} style={{display:"none"}}/>
+            {bukti?(
+              <div>
+                {bukti.file.type.startsWith("image/")?
+                  <img src={bukti.url} alt="bukti" style={{maxHeight:150,maxWidth:"100%",borderRadius:8,marginBottom:8,objectFit:"contain"}}/>
+                  :<div style={{fontSize:36,marginBottom:8}}>📄</div>}
+                <p style={{fontSize:12,color:agent.color,fontWeight:600}}>{bukti.name}</p>
+                <p style={{fontSize:11,color:"#475569",marginTop:4}}>Klik untuk ganti</p>
+              </div>
+            ):(
+              <div>
+                <div style={{fontSize:36,marginBottom:8,opacity:.4}}>📎</div>
+                <p style={{fontSize:13,color:"#64748B"}}>Klik atau drag bukti transfer</p>
+                <p style={{fontSize:11,color:"#334155",marginTop:4}}>JPG, PNG, PDF</p>
+              </div>
+            )}
+          </div>
+          <div style={{display:"flex",gap:10}}>
+            <button onClick={()=>setStep(1)} style={{flex:1,padding:"11px",borderRadius:10,
+              border:"1px solid rgba(255,255,255,.1)",background:"transparent",color:"#64748B",fontSize:13,fontWeight:600,cursor:"pointer"}}>← Kembali</button>
+            <button onClick={handleConfirm} disabled={!bukti||loading}
+              style={{flex:2,padding:"11px",borderRadius:10,border:"none",
+                background:bukti&&!loading?`linear-gradient(135deg,${agent.color},${agent.color}CC)`:"#1E293B",
+                color:bukti&&!loading?"#000":"#334155",fontSize:13,fontWeight:700,
+                cursor:bukti&&!loading?"pointer":"not-allowed",transition:"all .2s",
+                boxShadow:bukti&&!loading?`0 4px 16px ${agent.color}30`:"none"}}>
+              {loading?"⏳ Memproses...":"✓ Konfirmasi & Simpan"}
+            </button>
+          </div>
+          {!bukti&&<p style={{textAlign:"center",fontSize:11,color:"#334155",marginTop:10}}>Upload bukti wajib sebelum konfirmasi</p>}
+        </div>
+      )}
+
+      {/* STEP 3 — Kirim WA */}
+      {step===3&&(
+        <div style={{animation:"fadeUp .2s ease",textAlign:"center"}}>
+          <div style={{width:60,height:60,borderRadius:"50%",background:"rgba(34,197,94,.15)",
+            border:"2px solid #22C55E",display:"flex",alignItems:"center",justifyContent:"center",
+            fontSize:26,margin:"0 auto 14px",boxShadow:"0 0 28px rgba(34,197,94,.2)"}}>✓</div>
+          <p style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:".1em",color:"#E2E8F0",marginBottom:4}}>Transfer Dicatat!</p>
+          <p style={{fontSize:12,color:"#475569",marginBottom:16}}>Total: <strong style={{color:agent.color}}>{rp(numKom+numSav)}</strong> ke {agent.label}</p>
+          {/* Preview pesan */}
+          <div style={{marginBottom:14,padding:"12px 14px",background:"rgba(37,211,102,.06)",
+            border:"1px solid rgba(37,211,102,.2)",borderRadius:10,textAlign:"left"}}>
+            <p style={{fontSize:10,color:"#475569",letterSpacing:".08em",marginBottom:8}}>PREVIEW PESAN WA</p>
+            <div style={{fontSize:11,color:"#94A3B8",lineHeight:1.8,fontFamily:"'DM Mono',monospace",whiteSpace:"pre-line"}}>
+              {`Halo `}<strong style={{color:"#E2E8F0"}}>{agent.label}</strong>{` 👋
+Admin telah transfer:
+`}
+              {numKom>0&&<>{`💸 Komisi : `}<strong style={{color:"#F87171"}}>{`Rp ${fmtN(numKom)}`}</strong>{`
+`}</>}
+              {numSav>0&&<>{`🏦 Saving : `}<strong style={{color:agent.color}}>{`Rp ${fmtN(numSav)}`}</strong>{`
+`}</>}
+              {`📅 ${tgl}`}{ket&&`
+📝 ${ket}`}
+            </div>
+          </div>
+          {bukti&&bukti.file.type.startsWith("image/")&&(
+            <div style={{marginBottom:12,padding:8,background:"rgba(255,255,255,.03)",borderRadius:10,border:"1px solid rgba(255,255,255,.07)"}}>
+              <img src={bukti.url} alt="bukti" style={{maxHeight:90,maxWidth:"100%",borderRadius:6,objectFit:"contain"}}/>
+            </div>
+          )}
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            <button onClick={()=>window.open(`https://wa.me/${agent.wa}?text=${waText}`,"_blank")}
+              style={{width:"100%",padding:"13px",borderRadius:11,border:"none",
+                background:"linear-gradient(135deg,#25D366,#128C7E)",color:"#fff",
+                fontSize:14,fontWeight:700,cursor:"pointer",
+                display:"flex",alignItems:"center",justifyContent:"center",gap:8,
+                boxShadow:"0 4px 20px rgba(37,211,102,.35)"}}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+                <path d="M12 0C5.373 0 0 5.373 0 12c0 2.124.558 4.118 1.531 5.845L.057 23.55a.75.75 0 0 0 .916.919l5.808-1.453A11.946 11.946 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75a9.75 9.75 0 0 1-4.96-1.36l-.355-.212-3.684.921.958-3.591-.232-.37A9.75 9.75 0 1 1 12 21.75z"/>
+              </svg>
+              Kirim WA ke {agent.label} · {agent.waDisplay}
+            </button>
+            <button onClick={onClose} style={{width:"100%",padding:"9px",borderRadius:10,
+              border:"1px solid rgba(255,255,255,.08)",background:"transparent",
+              color:"#475569",fontSize:12,fontWeight:600,cursor:"pointer"}}>Tutup</button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
 // ─── WITHDRAW MODAL ───────────────────────────────────────────────────────────
 function WithdrawModal({agent, saldo, onConfirm, onClose}) {
   const [step, setStep]       = useState(1); // 1=form, 2=bukti, 3=kirim
@@ -1057,7 +1556,7 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
   const [data,setData]=useState(DEMO_TRANS);
   const [loading,setLoading]=useState(false);
   const [toasts,setToasts]=useState([]);
-  const [withdrawModal,setWithdrawModal]=useState(null); // agent obj
+  const [transferModal,setTransferModal]=useState(null); // agent obj — unified komisi+saving
   const [filterAgent,setFilterAgent]=useState("all");
 
   // Form: Input Fee
@@ -1087,14 +1586,30 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
   const totalFeeAgentBT = feeRecords.reduce((s,r)=>s+(parseFloat(r.feeAgentBT)||0),0);
   const totalWithdraw= withdrawRecs.reduce((s,r)=>s+(parseFloat(r.jumlah)||0),0);
 
-  // Saldo agen = total saving dari fee - withdraw
+  // Pisahkan: komisi (fee langsung agen) vs saving (BDB per agen)
+  const komisiRecs = data.filter(r=>r.type==="komisi");
+
   const agentSaldo = AGENTS.map(ag=>{
-    const totalSaving = feeRecords.reduce((s,r)=>s+(parseFloat(r[ag.savingField])||0),0);
-    const totalOut    = withdrawRecs.filter(w=>w.agent===ag.id).reduce((s,r)=>s+(parseFloat(r.jumlah)||0),0);
-    return { ...ag, totalSaving, totalOut, saldo: totalSaving-totalOut };
+    const totalKomisi      = feeRecords.reduce((s,r)=>s+(parseFloat(r[ag.feeField])||0),0);
+    const totalSaving      = feeRecords.reduce((s,r)=>s+(parseFloat(r[ag.savingField])||0),0);
+    const sudahTransferKom = komisiRecs.filter(w=>w.agent===ag.id).reduce((s,r)=>s+(parseFloat(r.jumlah)||0),0);
+    const sudahTransferSav = withdrawRecs.filter(w=>w.agent===ag.id).reduce((s,r)=>s+(parseFloat(r.jumlah)||0),0);
+    const hutangKomisi     = totalKomisi - sudahTransferKom;
+    const saldoSaving      = totalSaving - sudahTransferSav;
+    return { ...ag, totalKomisi, totalSaving, sudahTransferKom, sudahTransferSav,
+      hutangKomisi, saldoSaving,
+      totalOut: sudahTransferKom + sudahTransferSav,
+      saldo: saldoSaving
+    };
   });
 
-  const totalSaldoAll = agentSaldo.reduce((s,a)=>s+a.saldo,0);
+  const totalSaldoAll  = agentSaldo.reduce((s,a)=>s+a.saldo,0);
+  const totalHutangKom = agentSaldo.reduce((s,a)=>s+a.hutangKomisi,0);
+
+  // Saldo BDB murni = opBdb - pengeluaran promo
+  const totalOpBdb = feeRecords.reduce((s,r)=>s+(parseFloat(r.opBdb)||0),0);
+  const saldoBDB   = totalOpBdb - totalPromoOut;
+
 
   // Preview kalkulasi fee
   const feeNums = { fee:parseMoney(feeForm.feeLariz), promo:parseMoney(feeForm.promo), feeAgentBT:parseMoney(feeForm.feeAgentBT) };
@@ -1154,6 +1669,15 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
     setData(d=>d.filter(r=>!ids.includes(r.id)));
     addToast(isBulk ? `${ids.length} transaksi dihapus.` : "Transaksi dihapus.");
     ids.forEach(id=>{ try{ fetch(GAS_URL,{method:"POST",body:JSON.stringify({action:"deleteRecord",id})}); }catch{} });
+  };
+
+  // Transfer komisi agen
+
+  const handleTransferKomisi=async({agent,jumlah,keterangan,buktiName=""})=>{
+    const newRec={id:"k"+Date.now(),type:"komisi",tanggal:new Date().toISOString().split("T")[0],agent,jumlah,keterangan,buktiName};
+    try{ await fetch(GAS_URL,{method:"POST",body:JSON.stringify({action:"addKomisi",...newRec})}); }catch{}
+    setData(d=>[newRec,...d]);
+    addToast(`Transfer komisi ${agent} berhasil dicatat!`);
   };
 
   // Edit — buka modal edit
@@ -1260,12 +1784,13 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
           <div style={{animation:"fadeUp .35s ease"}}>
 
             {/* Top KPI Cards */}
-            <div className="grid-4 section-gap" style={{marginBottom:28}}>
+            <div className="grid-4 section-gap" style={{marginBottom:28,gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))"}}>
               {[
                 {label:"Total Fee Masuk",  value:totalFeeIn,   color:"#34D399", icon:"📥", sub:`${feeRecords.length} transaksi (gross)`},
                 {label:"Net Commission",   value:totalNetComm, color:"#6366F1", icon:"✅", sub:"setelah co-broke"},
                 {label:"Total Pengeluaran",value:totalPromoOut+totalFeeAgentBT,color:"#F87171", icon:"📤", sub:`${promoRecords.length} promo + co-broke`},
-                {label:"Total Saldo Agen", value:totalSaldoAll,color:"#F59E0B", icon:"🏦", sub:"semua agen"},
+                {label:"Saldo BDB",        value:saldoBDB,     color:"#F59E0B", icon:"🏦", sub:"operasional bersih"},
+                {label:"Hutang Komisi",   value:totalHutangKom,color:"#F87171", icon:"💸", sub:"belum ditransfer ke agen"},
               ].map(c=>(
                 <div key={c.label} style={{background:`${c.color}08`,border:`1px solid ${c.color}20`,borderRadius:14,padding:"18px 20px",position:"relative",overflow:"hidden"}}>
                   <div style={{position:"absolute",top:0,left:0,right:0,height:3,background:c.color,borderRadius:"14px 14px 0 0",opacity:.6}}/>
@@ -1283,55 +1808,65 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
               <SectionTitle>💳 Saldo Tabungan Agen</SectionTitle>
               <div className="grid-3">
                 {agentSaldo.map(ag=>(
-                  <div key={ag.id} style={{background:`${ag.color}07`,border:`1px solid ${ag.color}20`,borderRadius:16,padding:"20px 22px",position:"relative",overflow:"hidden"}}>
-                    {/* Decorative bg circle */}
-                    <div style={{position:"absolute",right:-20,top:-20,width:90,height:90,borderRadius:"50%",background:`${ag.color}08`}}/>
-                    <div className="saldo-card-inner" style={{marginBottom:16}}>
-                      <div>
-                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-                          <div style={{width:32,height:32,borderRadius:9,background:`${ag.color}20`,border:`1px solid ${ag.color}35`,
-                            display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Bebas Neue',sans-serif",fontSize:12,color:ag.color}}>
-                            {ag.id.slice(0,2).toUpperCase()}
-                          </div>
-                          <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:".1em",color:"#E2E8F0"}}>{ag.label}</span>
+                  <div key={ag.id} style={{background:`${ag.color}07`,border:`1px solid ${ag.color}20`,borderRadius:16,padding:"18px 20px",position:"relative",overflow:"hidden"}}>
+                    <div style={{position:"absolute",right:-20,top:-20,width:90,height:90,borderRadius:"50%",background:`${ag.color}06`,pointerEvents:"none"}}/>
+
+                    {/* Header + satu tombol Transfer */}
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <div style={{width:30,height:30,borderRadius:9,background:`${ag.color}20`,border:`1px solid ${ag.color}35`,
+                          display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Bebas Neue',sans-serif",fontSize:12,color:ag.color}}>
+                          {ag.id.slice(0,2).toUpperCase()}
                         </div>
-                        <div style={{fontSize:11,color:"#334155"}}>{ag.pct}% dari net · Saving {ag.savingPct}% BDB</div>
+                        <div>
+                          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,letterSpacing:".1em",color:"#E2E8F0"}}>{ag.label}</div>
+                          <div style={{fontSize:10,color:"#334155"}}>{ag.pct}% net · Saving {ag.savingPct}% BDB</div>
+                        </div>
                       </div>
-                      <button onClick={()=>setWithdrawModal(ag)} style={{
-                        padding:"6px 12px",borderRadius:9,border:`1px solid ${ag.color}40`,
-                        background:`${ag.color}12`,color:ag.color,fontSize:11,fontWeight:700,cursor:"pointer",
-                        transition:"all .15s",whiteSpace:"nowrap"}}
-                        onMouseEnter={e=>{e.currentTarget.style.background=`${ag.color}25`;}}
-                        onMouseLeave={e=>{e.currentTarget.style.background=`${ag.color}12`;}}>
-                        ↑ Tarik
+                      <button onClick={()=>setTransferModal(ag)}
+                        disabled={ag.hutangKomisi<=0 && ag.saldoSaving<=0}
+                        style={{padding:"6px 14px",borderRadius:9,border:`1px solid ${ag.color}40`,
+                          background:(ag.hutangKomisi>0||ag.saldoSaving>0)?`${ag.color}15`:"rgba(255,255,255,.03)",
+                          color:(ag.hutangKomisi>0||ag.saldoSaving>0)?ag.color:"#334155",
+                          fontSize:11,fontWeight:700,cursor:(ag.hutangKomisi>0||ag.saldoSaving>0)?"pointer":"not-allowed",
+                          whiteSpace:"nowrap",transition:"all .15s"}}
+                        onMouseEnter={e=>{if(ag.hutangKomisi>0||ag.saldoSaving>0)e.currentTarget.style.background=`${ag.color}28`;}}
+                        onMouseLeave={e=>{e.currentTarget.style.background=(ag.hutangKomisi>0||ag.saldoSaving>0)?`${ag.color}15`:"rgba(255,255,255,.03)";}}>
+                        ↑ Transfer
                       </button>
                     </div>
-                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:24,fontWeight:700,color:ag.color,marginBottom:12}}>
-                      <AnimNum value={ag.saldo}/>
-                    </div>
-                    <div className="stat-row" style={{gap:16}}>
-                      <div>
-                        <div style={{fontSize:10,color:"#334155"}}>Total Masuk</div>
-                        <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:"#64748B"}}>{rpS(ag.totalSaving)}</div>
-                      </div>
-                      <div style={{width:1,background:"rgba(255,255,255,.06)"}}/>
-                      <div>
-                        <div style={{fontSize:10,color:"#334155"}}>Total Keluar</div>
-                        <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:"#F87171"}}>{rpS(ag.totalOut)}</div>
-                      </div>
-                      <div style={{width:1,background:"rgba(255,255,255,.06)"}}/>
-                      <div>
-                        <div style={{fontSize:10,color:"#334155"}}>Riwayat Tarik</div>
-                        <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:"#64748B"}}>{withdrawRecs.filter(w=>w.agent===ag.id).length}x</div>
+
+                    {/* Hutang Komisi */}
+                    <div style={{marginBottom:8,padding:"10px 12px",background:"rgba(248,113,113,.07)",
+                      border:"1px solid rgba(248,113,113,.18)",borderRadius:10}}>
+                      <div style={{fontSize:9,color:"#F87171",fontWeight:700,letterSpacing:".07em",marginBottom:4}}>💸 HUTANG KOMISI</div>
+                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:17,fontWeight:700,
+                        color:ag.hutangKomisi>0?"#F87171":"#334155",marginBottom:6}}>{rp(ag.hutangKomisi)}</div>
+                      <div style={{display:"flex",gap:10}}>
+                        <div><div style={{fontSize:9,color:"#334155"}}>Total</div>
+                          <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:"#64748B"}}>{rpS(ag.totalKomisi)}</div></div>
+                        <div style={{width:1,background:"rgba(255,255,255,.06)"}}/>
+                        <div><div style={{fontSize:9,color:"#334155"}}>Ditransfer</div>
+                          <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:"#34D399"}}>{rpS(ag.sudahTransferKom)}</div></div>
                       </div>
                     </div>
-                    {/* Progress bar */}
-                    <div style={{marginTop:14,height:4,background:"rgba(255,255,255,.05)",borderRadius:2,overflow:"hidden"}}>
-                      <div style={{height:"100%",background:`linear-gradient(90deg,${ag.color},${ag.color}80)`,
-                        width:`${ag.totalSaving>0?Math.max(5,(ag.saldo/ag.totalSaving)*100):0}%`,borderRadius:2,transition:"width 1s ease"}}/>
-                    </div>
-                    <div style={{fontSize:10,color:"#334155",marginTop:4}}>
-                      {ag.totalSaving>0?`${Math.round((ag.saldo/ag.totalSaving)*100)}% tersisa`:"Belum ada masuk"}
+
+                    {/* Saving BDB */}
+                    <div style={{padding:"10px 12px",background:`${ag.color}08`,border:`1px solid ${ag.color}18`,borderRadius:10}}>
+                      <div style={{fontSize:9,color:ag.color,fontWeight:700,letterSpacing:".07em",marginBottom:4}}>🏦 SAVING BDB</div>
+                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:17,fontWeight:700,color:ag.color,marginBottom:6}}>{rp(ag.saldoSaving)}</div>
+                      <div style={{display:"flex",gap:10}}>
+                        <div><div style={{fontSize:9,color:"#334155"}}>Total</div>
+                          <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:"#64748B"}}>{rpS(ag.totalSaving)}</div></div>
+                        <div style={{width:1,background:"rgba(255,255,255,.06)"}}/>
+                        <div><div style={{fontSize:9,color:"#334155"}}>Ditarik</div>
+                          <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:"#F87171"}}>{rpS(ag.sudahTransferSav)}</div></div>
+                      </div>
+                      <div style={{marginTop:8,height:3,background:"rgba(255,255,255,.05)",borderRadius:2,overflow:"hidden"}}>
+                        <div style={{height:"100%",background:`linear-gradient(90deg,${ag.color},${ag.color}70)`,
+                          width:`${ag.totalSaving>0?Math.max(3,(ag.saldoSaving/ag.totalSaving)*100):0}%`,
+                          borderRadius:2,transition:"width 1s ease"}}/>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -1385,7 +1920,8 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
                     {label:"Rata-rata Fee/transaksi", value:feeRecords.length?totalFeeIn/feeRecords.length:0, color:"#6366F1"},
                     {label:"Total Transaksi", value:feeRecords.length, color:"#34D399", isCount:true},
                     {label:"Total Penarikan Agen", value:totalWithdraw, color:"#F59E0B"},
-                    {label:"Saldo BDB Operasional", value:feeRecords.reduce((s,r)=>s+(parseFloat(r.opBdb)||0),0)-totalPromoOut, color:"#22D3EE"},
+                    {label:"Saldo BDB Operasional", value:saldoBDB, color:"#22D3EE"},
+                    {label:"Total Hutang Komisi", value:totalHutangKom, color:"#F87171"},
                   ].map(s=>(
                     <div key={s.label} style={{background:"rgba(255,255,255,.02)",border:`1px solid ${s.color}20`,
                       borderRadius:12,padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -1647,12 +2183,13 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
       </main>
 
       {/* Withdraw Modal */}
-      {withdrawModal&&(
-        <WithdrawModal
-          agent={withdrawModal}
-          saldo={agentSaldo.find(a=>a.id===withdrawModal.id)?.saldo||0}
-          onConfirm={handleWithdraw}
-          onClose={()=>setWithdrawModal(null)}
+      {transferModal&&(
+        <TransferUnifiedModal
+          agent={transferModal}
+          agData={agentSaldo.find(a=>a.id===transferModal.id)}
+          onConfirmKomisi={handleTransferKomisi}
+          onConfirmSaving={handleWithdraw}
+          onClose={()=>setTransferModal(null)}
         />
       )}
 
@@ -1773,8 +2310,12 @@ function SaldoTable({ data, agentSaldo, filterAgent, onDelete, onEdit }) {
       in:0, out:parseFloat(r.jumlah)||0, net:-(parseFloat(r.jumlah)||0), color:"#F87171", badge:"PROMO", raw:r,
     };
     if(r.type==="withdraw") return {
-      id:r.id, tanggal:r.tanggal, desc:`Tarik Tabungan — ${r.agent?.charAt(0).toUpperCase()+r.agent?.slice(1)}`, type:"withdraw",
-      in:0, out:parseFloat(r.jumlah)||0, net:-(parseFloat(r.jumlah)||0), color:"#F59E0B", badge:"TARIK", raw:r,
+      id:r.id, tanggal:r.tanggal, desc:`Tarik Saving — ${r.agent?.charAt(0).toUpperCase()+r.agent?.slice(1)}`, type:"withdraw",
+      in:0, out:parseFloat(r.jumlah)||0, net:-(parseFloat(r.jumlah)||0), color:"#F59E0B", badge:"SAVING", raw:r,
+    };
+    if(r.type==="komisi") return {
+      id:r.id, tanggal:r.tanggal, desc:`Transfer Komisi — ${r.agent?.charAt(0).toUpperCase()+r.agent?.slice(1)}`, type:"komisi",
+      in:0, out:parseFloat(r.jumlah)||0, net:-(parseFloat(r.jumlah)||0), color:"#F87171", badge:"KOMISI", raw:r,
     };
     return null;
   }).filter(Boolean);
@@ -2026,7 +2567,7 @@ function FullHistoryTable({ data, agents, onDelete, onEdit }) {
                 const isExp   = expanded === i;
                 const isFee   = r.type === "fee";
                 const isPromo = r.type === "promo";
-                const isWd    = r.type === "withdraw";
+                const isWd    = r.type === "withdraw" || r.type === "komisi";
                 const typeInfo= isFee?{label:"FEE",color:"#34D399"}:isPromo?{label:"PROMO",color:"#F87171"}:{label:"TARIK",color:"#F59E0B"};
                 const ag      = isWd ? agents.find(a=>a.id===r.agent) : null;
                 const isChecked = !!checked[r.id];
@@ -2071,7 +2612,8 @@ function FullHistoryTable({ data, agents, onDelete, onEdit }) {
                       <td style={{...S.td,maxWidth:220}}>
                         {isFee&&<><span style={{fontWeight:600,color:"#CBD5E1"}}>{r.namaDev}</span><span style={{color:"#475569"}}> / {r.namaKonsumen}</span></>}
                         {isPromo&&<span style={{color:"#94A3B8"}}>{r.keterangan}</span>}
-                        {isWd&&<span style={{color:"#94A3B8"}}>Tarik — <strong style={{color:ag?.color||"#E2E8F0"}}>{r.agent}</strong> · {r.keterangan}</span>}
+                        {isWd&&<span style={{color:"#94A3B8"}}>Tarik Saving — <strong style={{color:ag?.color||"#E2E8F0"}}>{r.agent}</strong> · {r.keterangan}</span>}
+                        {r.type==="komisi"&&<span style={{color:"#94A3B8"}}>Transfer Komisi — <strong style={{color:ag?.color||"#F87171"}}>{r.agent}</strong> · {r.keterangan}</span>}
                       </td>
                       <td style={S.td}>
                         <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,
