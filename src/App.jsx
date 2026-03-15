@@ -1750,28 +1750,14 @@ const CORRECT_HASHES = {
 };
 
 const verifyPwd=(username,plaintext)=>{
-  // Cek dari GAS dulu, fallback ke hardcode
-  const stored = pwdMap[username] || CORRECT_HASHES[username] || "";
-  if (!stored) return false;
-  
-  // Bandingkan md5 input dengan stored hash
-  const inputHash = md5(plaintext);
-  
-  // Kalau md5 gagal (hash salah), coba bandingkan langsung
-  // dengan semua kemungkinan password default
-  const defaultPasswords = {
-    admin: "admin123",
-    aris:  "aris123",
-    argo:  "argo123",
-    darma: "darma123",
-  };
-  
-  // Jika stored hash cocok dengan CORRECT_HASHES
-  // dan plaintext cocok dengan default password → izinkan login
-  if (CORRECT_HASHES[username] === stored && 
-      defaultPasswords[username] === plaintext) {
-    return true;
-  }
-  
-  return inputHash === stored;
+  const CORRECT_HASHES={
+  admin:"0192023a7bbd73250516f069df18b500",
+  aris:"7e22b8b5e1d9d05fba3d55f5fb13cfe1",
+  argo:"9b47b77b6e0f41bde74c17bca00bde26",
+  darma:"8d97a21a7e20b9f9e8f3bcef63de4ef4",
+};
+
+const verifyPwd=(username,plaintext)=>{
+  const stored=pwdMap[username]||CORRECT_HASHES[username]||"";
+  return md5(plaintext)===stored;
 };
