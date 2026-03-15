@@ -1,13 +1,86 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 const GAS_URL = "https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec";
 
+// ─── MD5 ─────────────────────────────────────────────────────────────────────
+function md5(str) {
+  function safeAdd(x,y){const l=(x&0xffff)+(y&0xffff);return(((x>>16)+(y>>16)+(l>>16))<<16)|(l&0xffff);}
+  function bitRotateLeft(num,cnt){return(num<<cnt)|(num>>>(32-cnt));}
+  function md5cmn(q,a,b,x,s,t){return safeAdd(bitRotateLeft(safeAdd(safeAdd(a,q),safeAdd(x,t)),s),b);}
+  function md5ff(a,b,c,d,x,s,t){return md5cmn((b&c)|((~b)&d),a,b,x,s,t);}
+  function md5gg(a,b,c,d,x,s,t){return md5cmn((b&d)|(c&(~d)),a,b,x,s,t);}
+  function md5hh(a,b,c,d,x,s,t){return md5cmn(b^c^d,a,b,x,s,t);}
+  function md5ii(a,b,c,d,x,s,t){return md5cmn(c^(b|(~d)),a,b,x,s,t);}
+  function str2binl(str){
+    const bin={};
+    for(let i=0;i<str.length*8;i+=8) bin[i>>5]|=(str.charCodeAt(i/8)&0xff)<<(i%32);
+    return bin;
+  }
+  function binl2hex(binarray){
+    const hex="0123456789abcdef";let str="";
+    for(let i=0;i<binarray.length*4;i++) str+=hex.charAt((binarray[i>>2]>>((i%4)*8+4))&0xf)+hex.charAt((binarray[i>>2]>>((i%4)*8))&0xf);
+    return str;
+  }
+  function coreMD5(x,len){
+    x[len>>5]|=0x80<<((len)%32);x[(((len+64)>>>9)<<4)+14]=len;
+    let a=1732584193,b=-271733879,c=-1732584194,d=271733878;
+    for(let i=0;i<x.length;i+=16){
+      const [oa,ob,oc,od]=[a,b,c,d];
+      a=md5ff(a,b,c,d,x[i+ 0], 7,-680876936);d=md5ff(d,a,b,c,x[i+ 1],12,-389564586);c=md5ff(c,d,a,b,x[i+ 2],17, 606105819);b=md5ff(b,c,d,a,x[i+ 3],22,-1044525330);
+      a=md5ff(a,b,c,d,x[i+ 4], 7,-176418897);d=md5ff(d,a,b,c,x[i+ 5],12, 1200080426);c=md5ff(c,d,a,b,x[i+ 6],17,-1473231341);b=md5ff(b,c,d,a,x[i+ 7],22,-45705983);
+      a=md5ff(a,b,c,d,x[i+ 8], 7, 1770035416);d=md5ff(d,a,b,c,x[i+ 9],12,-1958414417);c=md5ff(c,d,a,b,x[i+10],17,-42063);b=md5ff(b,c,d,a,x[i+11],22,-1990404162);
+      a=md5ff(a,b,c,d,x[i+12], 7, 1804603682);d=md5ff(d,a,b,c,x[i+13],12,-40341101);c=md5ff(c,d,a,b,x[i+14],17,-1502002290);b=md5ff(b,c,d,a,x[i+15],22, 1236535329);
+      a=md5gg(a,b,c,d,x[i+ 1], 5,-165796510);d=md5gg(d,a,b,c,x[i+ 6], 9,-1069501632);c=md5gg(c,d,a,b,x[i+11],14, 643717713);b=md5gg(b,c,d,a,x[i+ 0],20,-373897302);
+      a=md5gg(a,b,c,d,x[i+ 5], 5,-701558691);d=md5gg(d,a,b,c,x[i+10], 9, 38016083);c=md5gg(c,d,a,b,x[i+15],14,-660478335);b=md5gg(b,c,d,a,x[i+ 4],20,-405537848);
+      a=md5gg(a,b,c,d,x[i+ 9], 5, 568446438);d=md5gg(d,a,b,c,x[i+14], 9,-1019803690);c=md5gg(c,d,a,b,x[i+ 3],14,-187363961);b=md5gg(b,c,d,a,x[i+ 8],20, 1163531501);
+      a=md5gg(a,b,c,d,x[i+13], 5,-1444681467);d=md5gg(d,a,b,c,x[i+ 2], 9,-51403784);c=md5gg(c,d,a,b,x[i+ 7],14, 1735328473);b=md5gg(b,c,d,a,x[i+12],20,-1926607734);
+      a=md5hh(a,b,c,d,x[i+ 5], 4,-378558);d=md5hh(d,a,b,c,x[i+ 8],11,-2022574463);c=md5hh(c,d,a,b,x[i+11],16, 1839030562);b=md5hh(b,c,d,a,x[i+14],23,-35309556);
+      a=md5hh(a,b,c,d,x[i+ 1], 4,-1530992060);d=md5hh(d,a,b,c,x[i+ 4],11, 1272893353);c=md5hh(c,d,a,b,x[i+ 7],16,-155497632);b=md5hh(b,c,d,a,x[i+10],23,-1094730640);
+      a=md5hh(a,b,c,d,x[i+13], 4, 681279174);d=md5hh(d,a,b,c,x[i+ 0],11,-358537222);c=md5hh(c,d,a,b,x[i+ 3],16,-722521979);b=md5hh(b,c,d,a,x[i+ 6],23, 76029189);
+      a=md5hh(a,b,c,d,x[i+ 9], 4,-640364487);d=md5hh(d,a,b,c,x[i+12],11,-421815835);c=md5hh(c,d,a,b,x[i+15],16, 530742520);b=md5hh(b,c,d,a,x[i+ 2],23,-995338651);
+      a=md5ii(a,b,c,d,x[i+ 0], 6,-198630844);d=md5ii(d,a,b,c,x[i+ 7],10, 1126891415);c=md5ii(c,d,a,b,x[i+14],15,-1416354905);b=md5ii(b,c,d,a,x[i+ 5],21,-57434055);
+      a=md5ii(a,b,c,d,x[i+12], 6, 1700485571);d=md5ii(d,a,b,c,x[i+ 3],10,-1894986606);c=md5ii(c,d,a,b,x[i+10],15,-1051523);b=md5ii(b,c,d,a,x[i+ 1],21,-2054922799);
+      a=md5ii(a,b,c,d,x[i+ 8], 6, 1873313359);d=md5ii(d,a,b,c,x[i+15],10,-30611744);c=md5ii(c,d,a,b,x[i+ 6],15,-1560198380);b=md5ii(b,c,d,a,x[i+13],21, 1309151649);
+      a=md5ii(a,b,c,d,x[i+ 4], 6,-145523070);d=md5ii(d,a,b,c,x[i+11],10,-1120210379);c=md5ii(c,d,a,b,x[i+ 2],15, 718787259);b=md5ii(b,c,d,a,x[i+ 9],21,-343485551);
+      a=safeAdd(a,oa);b=safeAdd(b,ob);c=safeAdd(c,oc);d=safeAdd(d,od);
+    }
+    return[a,b,c,d];
+  }
+  const binl=str2binl(str);
+  return binl2hex(coreMD5(binl,str.length*8));
+}
+
+// ─── PASSWORD STORE (localStorage, MD5 hashed) ───────────────────────────────
+// Default passwords pre-hashed (md5 of original):
+// admin123 → 0192023a7bbd73250516f069df18b500
+// aris123  → 7e22b8b5e1d9d05fba3d55f5fb13cfe1
+// argo123  → 9b47b77b6e0f41bde74c17bca00bde26
+// darma123 → 8d97a21a7e20b9f9e8f3bcef63de4ef4
+const DEFAULT_HASHES = {
+  admin: md5("admin123"),
+  aris:  md5("aris123"),
+  argo:  md5("argo123"),
+  darma: md5("darma123"),
+};
+
+function getPasswordHash(username) {
+  const stored = localStorage.getItem("lpwd_" + username);
+  return stored || DEFAULT_HASHES[username] || "";
+}
+function savePasswordHash(username, hash) {
+  localStorage.setItem("lpwd_" + username, hash);
+}
+function verifyPassword(username, plaintext) {
+  return md5(plaintext) === getPasswordHash(username);
+}
+
+// ─── USERS CONFIG ─────────────────────────────────────────────────────────────
 const USERS = {
-  admin: { password:"admin123", role:"admin", label:"Admin",  color:"#6366F1", avatar:"AD" },
-  aris:  { password:"aris123",  role:"agen",  label:"Aris",   color:"#22D3EE", avatar:"AR", feeField:"aris",  savingField:"savingAris"  },
-  argo:  { password:"argo123",  role:"agen",  label:"Argo",   color:"#F59E0B", avatar:"AG", feeField:"argo",  savingField:"savingArgo"  },
-  darma: { password:"darma123", role:"agen",  label:"Darma",  color:"#A78BFA", avatar:"DA", feeField:"darma", savingField:"savingDarma" },
+  admin: { role:"admin", label:"Admin",  color:"#6366F1", avatar:"AD" },
+  aris:  { role:"agen",  label:"Aris",   color:"#22D3EE", avatar:"AR", feeField:"aris",  savingField:"savingAris"  },
+  argo:  { role:"agen",  label:"Argo",   color:"#F59E0B", avatar:"AG", feeField:"argo",  savingField:"savingArgo"  },
+  darma: { role:"agen",  label:"Darma",  color:"#A78BFA", avatar:"DA", feeField:"darma", savingField:"savingDarma" },
 };
 
 const AGENTS = [
@@ -67,6 +140,73 @@ const G = `
   .row-hover:hover{background:rgba(99,102,241,.05)!important;}
   .btn-ghost:hover{opacity:.8;transform:translateY(-1px);}
   .nav-item:hover{background:rgba(255,255,255,.05)!important;}
+
+  /* ── RESPONSIVE GRID HELPERS ── */
+  .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+  .grid-2{display:grid;grid-template-columns:2fr 1fr;gap:14px;}
+  .grid-2-eq{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+  .grid-mini{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+
+  /* ── HEADER NAV ── */
+  .header-nav{display:flex;gap:2px;}
+  .header-right{display:flex;align-items:center;gap:10px;}
+  .brand-title{display:inline;}
+  .admin-badge{display:inline-flex;}
+  .header-inner{padding:0 20px;height:58px;display:flex;align-items:center;justify-content:space-between;}
+
+  /* ── AGEN SALDO CARD DETAILS ── */
+  .saldo-details{display:flex;gap:20px;margin-top:12px;}
+  .saldo-card-inner{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;}
+
+  /* ── TABLE WRAPPER ── */
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+
+  /* ── STAT ROW ── */
+  .stat-row{display:flex;gap:16px;}
+
+  /* ── MOBILE BOTTOM NAV ── */
+  .mobile-nav{display:none;}
+  .desktop-nav{display:flex;}
+
+  /* ════════════════════════════
+     TABLET  ≤ 900px
+  ════════════════════════════ */
+  @media(max-width:900px){
+    .grid-4{grid-template-columns:repeat(2,1fr);}
+    .grid-3{grid-template-columns:repeat(2,1fr);}
+    .grid-2{grid-template-columns:1fr;}
+    .grid-2-eq{grid-template-columns:1fr;}
+    .header-nav{gap:1px;}
+    .header-nav button{padding:5px 8px!important;font-size:11px!important;}
+    .brand-title{display:none;}
+  }
+
+  /* ════════════════════════════
+     MOBILE  ≤ 600px
+  ════════════════════════════ */
+  @media(max-width:600px){
+    .grid-4{grid-template-columns:1fr 1fr;}
+    .grid-3{grid-template-columns:1fr;}
+    .grid-2{grid-template-columns:1fr;}
+    .grid-2-eq{grid-template-columns:1fr;}
+    .grid-mini{grid-template-columns:1fr 1fr;}
+    .header-inner{padding:0 14px!important;height:52px!important;}
+    .desktop-nav{display:none!important;}
+    .mobile-nav{display:flex!important;position:fixed;bottom:0;left:0;right:0;z-index:200;
+      background:rgba(5,7,14,.96);border-top:1px solid rgba(255,255,255,.08);
+      backdrop-filter:blur(20px);padding:6px 0 calc(6px + env(safe-area-inset-bottom));}
+    .admin-badge{display:none!important;}
+    .header-right .logout-btn{padding:5px 10px!important;font-size:11px!important;}
+    .saldo-details{flex-wrap:wrap;gap:10px;}
+    .saldo-card-inner{flex-direction:column;}
+    .stat-row{flex-direction:column;}
+    main{padding:16px 12px 100px!important;}
+    .section-gap{margin-bottom:18px!important;}
+    .modal-inner{padding:18px!important;}
+    .toast-wrap{bottom:80px!important;right:12px!important;left:12px!important;}
+    .toast-wrap>div{min-width:unset!important;width:100%;}
+  }
 `;
 
 // ─── ANIMATED NUMBER ──────────────────────────────────────────────────────────
@@ -88,7 +228,7 @@ function AnimNum({ value, prefix="Rp\u00A0", duration=700 }) {
 // ─── TOAST ────────────────────────────────────────────────────────────────────
 function Toast({items, onRemove}) {
   return (
-    <div style={{position:"fixed",bottom:24,right:24,zIndex:9999,display:"flex",flexDirection:"column",gap:8}}>
+    <div className="toast-wrap" style={{position:"fixed",bottom:24,right:24,zIndex:9999,display:"flex",flexDirection:"column",gap:8}}>
       {items.map(t=>(
         <div key={t.id} onClick={()=>onRemove(t.id)} style={{
           background:t.type==="success"?"#052E16":t.type==="error"?"#450A0A":"#0C1A2E",
@@ -110,7 +250,7 @@ function Modal({title,onClose,children,width=480}) {
   return (
     <div style={{position:"fixed",inset:0,zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:20,
       background:"rgba(0,0,0,.7)",backdropFilter:"blur(8px)",animation:"fadeIn .2s ease"}} onClick={onClose}>
-      <div style={{width:"100%",maxWidth:width,background:"#0D1117",border:"1px solid rgba(255,255,255,.1)",
+      <div style={{width:"100%",maxWidth:Math.min(width, window.innerWidth-32),background:"#0D1117",border:"1px solid rgba(255,255,255,.1)",
         borderRadius:20,padding:28,boxShadow:"0 24px 80px rgba(0,0,0,.7)",animation:"fadeUp .25s ease"}}
         onClick={e=>e.stopPropagation()}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}>
@@ -124,16 +264,473 @@ function Modal({title,onClose,children,width=480}) {
   );
 }
 
+// ─── FORGOT PASSWORD MODAL ───────────────────────────────────────────────────
+function ForgotPasswordModal({ onClose }) {
+  const [step,     setStep]    = useState(1); // 1=pilih user, 2=otp, 3=reset, 4=sukses
+  const [username, setUsername]= useState("");
+  const [otp,      setOtp]     = useState("");
+  const [newPass,  setNewPass] = useState("");
+  const [confirm,  setConfirm] = useState("");
+  const [showNew,  setShowNew] = useState(false);
+  const [showCon,  setShowCon] = useState(false);
+  const [loading,  setLoading] = useState(false);
+  const [error,    setError]   = useState("");
+  const [waNum,    setWaNum]   = useState("");
+
+  const userList = Object.entries(USERS).map(([k,v]) => ({key:k, ...v}));
+
+  const strength = (() => {
+    if (!newPass) return 0;
+    let s=0;
+    if(newPass.length>=6)  s++;
+    if(newPass.length>=10) s++;
+    if(/[A-Z]/.test(newPass)) s++;
+    if(/[0-9]/.test(newPass)) s++;
+    if(/[^A-Za-z0-9]/.test(newPass)) s++;
+    return s;
+  })();
+  const strengthColor = ["","#F87171","#F59E0B","#FBBF24","#34D399","#22D3EE"][strength];
+  const strengthLabel = ["","Lemah","Cukup","Sedang","Kuat","Sangat Kuat"][strength];
+
+  // Step 1 → Request OTP
+  const handleRequestOTP = async () => {
+    if (!username) { setError("Pilih akun dulu."); return; }
+    setError(""); setLoading(true);
+    try {
+      const res  = await fetch(`${GAS_URL}?action=requestOTP&username=${username}`);
+      const data = await res.json();
+      if (data.status === "ok") {
+        setWaNum(data.wa || "");
+        setStep(2);
+      } else {
+        setError(data.message || "Gagal mengirim OTP.");
+      }
+    } catch {
+      setError("Tidak bisa terhubung ke server.");
+    }
+    setLoading(false);
+  };
+
+  // Step 2 → Verify OTP
+  const handleVerifyOTP = async () => {
+    if (otp.length !== 6) { setError("OTP harus 6 digit."); return; }
+    setError(""); setLoading(true);
+    try {
+      const res  = await fetch(GAS_URL, { method:"POST", body: JSON.stringify({ action:"verifyOTP", username, otp }) });
+      const data = await res.json();
+      if (data.status === "ok") { setStep(3); }
+      else { setError(data.message || "OTP salah."); }
+    } catch {
+      setError("Tidak bisa terhubung ke server.");
+    }
+    setLoading(false);
+  };
+
+  // Step 3 → Reset password
+  const handleReset = async () => {
+    if (newPass.length < 6)    { setError("Password minimal 6 karakter."); return; }
+    if (newPass !== confirm)   { setError("Konfirmasi tidak cocok."); return; }
+    setError(""); setLoading(true);
+    const hash = md5(newPass);
+    // Simpan ke localStorage dulu
+    savePasswordHash(username, hash);
+    try {
+      await fetch(GAS_URL, { method:"POST", body: JSON.stringify({ action:"resetPassword", username, hash }) });
+    } catch {}
+    setLoading(false);
+    setStep(4);
+  };
+
+  const STEP_LABELS = ["Pilih Akun","Verifikasi OTP","Password Baru","Selesai"];
+
+  return (
+    <Modal title="LUPA PASSWORD" onClose={onClose} width={440}>
+      {/* Step indicator */}
+      <div style={{display:"flex",alignItems:"center",marginBottom:22}}>
+        {STEP_LABELS.map((l,i) => {
+          const done = step > i+1, active = step === i+1;
+          return (
+            <div key={l} style={{display:"flex",alignItems:"center",flex:i<3?1:"none"}}>
+              <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
+                <div style={{width:26,height:26,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",
+                  fontSize:11,fontWeight:700,transition:"all .25s",
+                  background:done?"#22C55E":active?"#6366F1":"rgba(255,255,255,.06)",
+                  color:done||active?"#fff":"#334155",
+                  border:`2px solid ${done?"#22C55E":active?"#6366F1":"rgba(255,255,255,.1)"}`,
+                  boxShadow:active?"0 0 12px rgba(99,102,241,.4)":"none"}}>
+                  {done?"✓":i+1}
+                </div>
+                <span style={{fontSize:8,color:active?"#818CF8":done?"#22C55E":"#334155",
+                  letterSpacing:".05em",textTransform:"uppercase",whiteSpace:"nowrap"}}>{l}</span>
+              </div>
+              {i<3&&<div style={{flex:1,height:2,margin:"0 4px",marginBottom:14,borderRadius:1,
+                background:done?"#22C55E":"rgba(255,255,255,.06)",transition:"background .3s"}}/>}
+            </div>
+          );
+        })}
+      </div>
+
+      {error && (
+        <div style={{marginBottom:14,padding:"8px 12px",background:"rgba(248,113,113,.08)",
+          border:"1px solid rgba(248,113,113,.25)",borderRadius:8,fontSize:12,color:"#F87171",fontWeight:600}}>
+          ✕ {error}
+        </div>
+      )}
+
+      {/* ── STEP 1: Pilih akun ── */}
+      {step===1 && (
+        <div style={{animation:"fadeUp .2s ease"}}>
+          <p style={{fontSize:13,color:"#64748B",marginBottom:16}}>
+            Pilih akun kamu, lalu OTP akan dikirim ke WhatsApp yang terdaftar.
+          </p>
+          <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>
+            {userList.map(u => (
+              <div key={u.key} onClick={()=>{setUsername(u.key);setError("");}}
+                style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",
+                  borderRadius:10,cursor:"pointer",transition:"all .15s",
+                  background:username===u.key?`${u.color}12`:"rgba(255,255,255,.02)",
+                  border:`1px solid ${username===u.key?u.color+"40":"rgba(255,255,255,.07)"}`}}>
+                <div style={{width:32,height:32,borderRadius:9,background:`${u.color}20`,
+                  border:`1px solid ${u.color}35`,display:"flex",alignItems:"center",justifyContent:"center",
+                  fontFamily:"'Bebas Neue',sans-serif",fontSize:12,color:u.color,flexShrink:0}}>
+                  {u.avatar}
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:600,color:"#CBD5E1"}}>{u.label}</div>
+                  <div style={{fontSize:10,color:"#475569"}}>@{u.key} · {u.role}</div>
+                </div>
+                {username===u.key && <div style={{color:u.color,fontSize:16}}>✓</div>}
+              </div>
+            ))}
+          </div>
+          <button onClick={handleRequestOTP} disabled={!username||loading}
+            style={{width:"100%",padding:"12px",borderRadius:10,border:"none",
+              background:username&&!loading?"linear-gradient(135deg,#6366F1,#4F46E5)":"#1E293B",
+              color:username&&!loading?"#fff":"#334155",fontSize:13,fontWeight:700,
+              cursor:username&&!loading?"pointer":"not-allowed",transition:"all .2s",
+              boxShadow:username&&!loading?"0 4px 16px rgba(99,102,241,.3)":"none"}}>
+            {loading?"⏳ Mengirim OTP...":"📱 Kirim OTP via WhatsApp"}
+          </button>
+        </div>
+      )}
+
+      {/* ── STEP 2: Verifikasi OTP ── */}
+      {step===2 && (
+        <div style={{animation:"fadeUp .2s ease"}}>
+          <div style={{marginBottom:18,padding:"12px 14px",background:"rgba(37,211,102,.06)",
+            border:"1px solid rgba(37,211,102,.2)",borderRadius:10}}>
+            <p style={{fontSize:12,color:"#34D399",fontWeight:600,marginBottom:4}}>✓ OTP Terkirim!</p>
+            <p style={{fontSize:12,color:"#64748B"}}>
+              Cek WhatsApp kamu{waNum?` (${waNum.replace("62","0").replace(/(\d{4})(\d{4})(\d+)/,"$1-$2-$3")})`:""}. OTP berlaku <strong style={{color:"#E2E8F0"}}>10 menit</strong>.
+            </p>
+          </div>
+          <div style={{marginBottom:16}}>
+            <label style={S.lbl}>Masukkan OTP (6 digit)</label>
+            <input value={otp} onChange={e=>{const v=e.target.value.replace(/\D/g,"").slice(0,6);setOtp(v);setError("");}}
+              placeholder="_ _ _ _ _ _" maxLength={6}
+              style={{...S.inp, textAlign:"center", fontSize:22, fontFamily:"'DM Mono',monospace",
+                letterSpacing:"0.4em", fontWeight:700,
+                borderColor: otp.length===6?"rgba(99,102,241,.5)":"rgba(255,255,255,.09)"}}/>
+            <div style={{display:"flex",gap:4,marginTop:8}}>
+              {[0,1,2,3,4,5].map(i=>(
+                <div key={i} style={{flex:1,height:3,borderRadius:2,
+                  background:i<otp.length?"#6366F1":"rgba(255,255,255,.08)",transition:"background .1s"}}/>
+              ))}
+            </div>
+          </div>
+          <button onClick={handleVerifyOTP} disabled={otp.length!==6||loading}
+            style={{width:"100%",padding:"12px",borderRadius:10,border:"none",
+              background:otp.length===6&&!loading?"linear-gradient(135deg,#6366F1,#4F46E5)":"#1E293B",
+              color:otp.length===6&&!loading?"#fff":"#334155",fontSize:13,fontWeight:700,
+              cursor:otp.length===6&&!loading?"pointer":"not-allowed",transition:"all .2s",marginBottom:10,
+              boxShadow:otp.length===6&&!loading?"0 4px 16px rgba(99,102,241,.3)":"none"}}>
+            {loading?"⏳ Memverifikasi...":"✓ Verifikasi OTP"}
+          </button>
+          <button onClick={()=>{setStep(1);setOtp("");setError("");}}
+            style={{width:"100%",padding:"10px",borderRadius:10,border:"1px solid rgba(255,255,255,.08)",
+              background:"transparent",color:"#475569",fontSize:12,fontWeight:600,cursor:"pointer"}}>
+            ← Ganti Akun
+          </button>
+        </div>
+      )}
+
+      {/* ── STEP 3: Password Baru ── */}
+      {step===3 && (
+        <div style={{animation:"fadeUp .2s ease"}}>
+          <p style={{fontSize:13,color:"#64D399",fontWeight:600,marginBottom:16}}>✓ OTP valid! Buat password baru kamu.</p>
+          <div style={{marginBottom:14}}>
+            <label style={S.lbl}>Password Baru</label>
+            <div style={{position:"relative"}}>
+              <input type={showNew?"text":"password"} value={newPass}
+                onChange={e=>{setNewPass(e.target.value);setError("");}}
+                placeholder="Minimal 6 karakter" style={{...S.inp,paddingRight:40}}/>
+              <button onClick={()=>setShowNew(x=>!x)} style={{position:"absolute",right:10,top:"50%",
+                transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:14,opacity:.5}}>
+                {showNew?"🙈":"👁️"}
+              </button>
+            </div>
+            {newPass.length>0&&(
+              <div style={{marginTop:6}}>
+                <div style={{display:"flex",gap:3,marginBottom:3}}>
+                  {[1,2,3,4,5].map(i=>(
+                    <div key={i} style={{flex:1,height:3,borderRadius:2,transition:"background .3s",
+                      background:i<=strength?strengthColor:"rgba(255,255,255,.08)"}}/>
+                  ))}
+                </div>
+                <span style={{fontSize:10,color:strengthColor,fontWeight:600}}>{strengthLabel}</span>
+              </div>
+            )}
+          </div>
+          <div style={{marginBottom:16}}>
+            <label style={S.lbl}>Konfirmasi Password</label>
+            <div style={{position:"relative"}}>
+              <input type={showCon?"text":"password"} value={confirm}
+                onChange={e=>{setConfirm(e.target.value);setError("");}}
+                placeholder="Ulangi password baru" style={{...S.inp,paddingRight:40}}/>
+              <button onClick={()=>setShowCon(x=>!x)} style={{position:"absolute",right:10,top:"50%",
+                transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:14,opacity:.5}}>
+                {showCon?"🙈":"👁️"}
+              </button>
+            </div>
+            {confirm.length>0&&(
+              <div style={{marginTop:4,fontSize:11,fontWeight:600,
+                color:newPass===confirm?"#34D399":"#F87171"}}>
+                {newPass===confirm?"✓ Password cocok":"✕ Tidak cocok"}
+              </div>
+            )}
+          </div>
+          <button onClick={handleReset} disabled={loading||newPass.length<6||newPass!==confirm}
+            style={{width:"100%",padding:"12px",borderRadius:10,border:"none",
+              background:!loading&&newPass.length>=6&&newPass===confirm
+                ?"linear-gradient(135deg,#6366F1,#4F46E5)":"#1E293B",
+              color:!loading&&newPass.length>=6&&newPass===confirm?"#fff":"#334155",
+              fontSize:13,fontWeight:700,cursor:"pointer",transition:"all .2s",
+              boxShadow:!loading&&newPass.length>=6&&newPass===confirm?"0 4px 16px rgba(99,102,241,.3)":"none"}}>
+            {loading?"⏳ Menyimpan...":"🔐 Simpan Password Baru"}
+          </button>
+        </div>
+      )}
+
+      {/* ── STEP 4: Sukses ── */}
+      {step===4 && (
+        <div style={{textAlign:"center",padding:"16px 0",animation:"fadeUp .2s ease"}}>
+          <div style={{width:64,height:64,borderRadius:"50%",background:"rgba(34,197,94,.15)",
+            border:"2px solid #22C55E",display:"flex",alignItems:"center",justifyContent:"center",
+            fontSize:28,margin:"0 auto 16px",boxShadow:"0 0 30px rgba(34,197,94,.25)"}}>✓</div>
+          <p style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,letterSpacing:".1em",color:"#E2E8F0",marginBottom:8}}>
+            Password Berhasil Direset!
+          </p>
+          <p style={{fontSize:13,color:"#475569",marginBottom:20}}>
+            Password baru kamu sudah aktif. Silakan login kembali.
+          </p>
+          <button onClick={onClose} style={{width:"100%",padding:"12px",borderRadius:10,border:"none",
+            background:"linear-gradient(135deg,#22C55E,#16A34A)",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",
+            boxShadow:"0 4px 16px rgba(34,197,94,.3)"}}>
+            Mengerti, Login Sekarang
+          </button>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+// ─── CHANGE PASSWORD MODAL ───────────────────────────────────────────────────
+function ChangePasswordModal({ user, onClose }) {
+  const [oldPass,  setOldPass]  = useState("");
+  const [newPass,  setNewPass]  = useState("");
+  const [confirm,  setConfirm]  = useState("");
+  const [showOld,  setShowOld]  = useState(false);
+  const [showNew,  setShowNew]  = useState(false);
+  const [showCon,  setShowCon]  = useState(false);
+  const [error,    setError]    = useState("");
+  const [success,  setSuccess]  = useState(false);
+  const [loading,  setLoading]  = useState(false);
+
+  const strength = (() => {
+    if (!newPass) return 0;
+    let s = 0;
+    if (newPass.length >= 6)  s++;
+    if (newPass.length >= 10) s++;
+    if (/[A-Z]/.test(newPass)) s++;
+    if (/[0-9]/.test(newPass)) s++;
+    if (/[^A-Za-z0-9]/.test(newPass)) s++;
+    return s;
+  })();
+
+  const strengthLabel = ["","Lemah","Cukup","Sedang","Kuat","Sangat Kuat"][strength];
+  const strengthColor = ["","#F87171","#F59E0B","#FBBF24","#34D399","#22D3EE"][strength];
+
+  const handleSave = () => {
+    setError("");
+    if (!verifyPassword(user.username, oldPass)) {
+      setError("Password lama tidak sesuai."); return;
+    }
+    if (newPass.length < 6) {
+      setError("Password baru minimal 6 karakter."); return;
+    }
+    if (newPass !== confirm) {
+      setError("Konfirmasi password tidak cocok."); return;
+    }
+    setLoading(true);
+    setTimeout(() => {
+      const hash = md5(newPass);
+      savePasswordHash(user.username, hash);
+      // Sync ke GAS jika tersedia
+      try {
+        fetch(GAS_URL, { method:"POST", body: JSON.stringify({
+          action: "updatePassword", username: user.username, hash
+        })});
+      } catch {}
+      setLoading(false);
+      setSuccess(true);
+    }, 600);
+  };
+
+  const PassInput = ({ label, value, onChange, show, onToggle, placeholder }) => (
+    <div style={{marginBottom:14}}>
+      <label style={S.lbl}>{label}</label>
+      <div style={{position:"relative"}}>
+        <input type={show?"text":"password"} value={value} onChange={e=>onChange(e.target.value)}
+          placeholder={placeholder||"••••••••"}
+          style={{...S.inp, paddingRight:40,
+            borderColor: error&&value?"rgba(248,113,113,.4)":"rgba(255,255,255,.09)"}}
+          onFocus={e=>{e.target.style.borderColor=`${user.color}60`;e.target.style.boxShadow=`0 0 0 3px ${user.color}10`;}}
+          onBlur={e=>{e.target.style.borderColor="rgba(255,255,255,.09)";e.target.style.boxShadow="none";}}
+        />
+        <button onClick={onToggle} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",
+          background:"none",border:"none",cursor:"pointer",fontSize:14,opacity:.5,padding:4}}>
+          {show?"🙈":"👁️"}
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <Modal title="GANTI PASSWORD" onClose={onClose} width={420}>
+      {/* User badge */}
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,padding:"10px 14px",
+        background:`${user.color}0C`,border:`1px solid ${user.color}22`,borderRadius:10}}>
+        <div style={{width:32,height:32,borderRadius:9,background:`${user.color}20`,
+          border:`1px solid ${user.color}35`,display:"flex",alignItems:"center",justifyContent:"center",
+          fontFamily:"'Bebas Neue',sans-serif",fontSize:13,color:user.color}}>{user.avatar}</div>
+        <div>
+          <div style={{fontSize:13,fontWeight:700,color:"#E2E8F0"}}>{user.label}</div>
+          <div style={{fontSize:10,color:"#475569"}}>@{user.username}</div>
+        </div>
+        <div style={{marginLeft:"auto",padding:"2px 8px",borderRadius:99,fontSize:10,fontWeight:700,
+          background:`${user.color}15`,color:user.color,border:`1px solid ${user.color}30`}}>
+          {user.role.toUpperCase()}
+        </div>
+      </div>
+
+      {success ? (
+        /* ── SUCCESS STATE ── */
+        <div style={{textAlign:"center",padding:"20px 0"}}>
+          <div style={{width:60,height:60,borderRadius:"50%",background:"rgba(34,197,94,.15)",
+            border:"2px solid #22C55E",display:"flex",alignItems:"center",justifyContent:"center",
+            fontSize:26,margin:"0 auto 16px",boxShadow:"0 0 30px rgba(34,197,94,.2)"}}>✓</div>
+          <p style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:".1em",color:"#E2E8F0",marginBottom:8}}>
+            Password Berhasil Diubah!
+          </p>
+          <p style={{fontSize:12,color:"#475569",marginBottom:20}}>
+            MD5 hash tersimpan di browser kamu.
+          </p>
+          <div style={{padding:"8px 14px",background:"rgba(255,255,255,.03)",borderRadius:9,
+            border:"1px solid rgba(255,255,255,.07)",marginBottom:20}}>
+            <div style={{fontSize:10,color:"#334155",marginBottom:4,letterSpacing:".07em"}}>HASH MD5 BARU</div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:"#64748B",wordBreak:"break-all"}}>
+              {md5(newPass)}
+            </div>
+          </div>
+          <button onClick={onClose} style={{width:"100%",padding:"11px",borderRadius:10,border:"none",
+            background:`linear-gradient(135deg,${user.color},${user.color}CC)`,
+            color:"#000",fontSize:13,fontWeight:700,cursor:"pointer"}}>
+            Tutup
+          </button>
+        </div>
+      ) : (
+        /* ── FORM STATE ── */
+        <div>
+          <PassInput label="Password Lama" value={oldPass} onChange={setOldPass} show={showOld} onToggle={()=>setShowOld(x=>!x)}/>
+          <PassInput label="Password Baru" value={newPass} onChange={v=>{setNewPass(v);setError("");}} show={showNew} onToggle={()=>setShowNew(x=>!x)}/>
+
+          {/* Strength bar */}
+          {newPass.length > 0 && (
+            <div style={{marginTop:-8,marginBottom:14}}>
+              <div style={{display:"flex",gap:3,marginBottom:4}}>
+                {[1,2,3,4,5].map(i=>(
+                  <div key={i} style={{flex:1,height:3,borderRadius:2,transition:"background .3s",
+                    background: i<=strength ? strengthColor : "rgba(255,255,255,.08)"}}/>
+                ))}
+              </div>
+              <div style={{fontSize:10,color:strengthColor,fontWeight:600}}>{strengthLabel}</div>
+            </div>
+          )}
+
+          <PassInput label="Konfirmasi Password Baru" value={confirm} onChange={v=>{setConfirm(v);setError("");}} show={showCon} onToggle={()=>setShowCon(x=>!x)}/>
+
+          {/* Match indicator */}
+          {confirm.length > 0 && (
+            <div style={{marginTop:-8,marginBottom:14,fontSize:11,fontWeight:600,
+              color:newPass===confirm?"#34D399":"#F87171"}}>
+              {newPass===confirm ? "✓ Password cocok" : "✕ Password tidak cocok"}
+            </div>
+          )}
+
+          {/* Hash preview */}
+          {newPass.length >= 6 && (
+            <div style={{marginBottom:14,padding:"8px 12px",background:"rgba(255,255,255,.03)",
+              border:"1px solid rgba(255,255,255,.06)",borderRadius:9}}>
+              <div style={{fontSize:10,color:"#334155",marginBottom:3,letterSpacing:".07em"}}>PREVIEW HASH MD5</div>
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:"#475569",wordBreak:"break-all"}}>
+                {md5(newPass)}
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div style={{marginBottom:14,padding:"8px 12px",background:"rgba(248,113,113,.08)",
+              border:"1px solid rgba(248,113,113,.25)",borderRadius:8,fontSize:12,color:"#F87171",fontWeight:600}}>
+              ✕ {error}
+            </div>
+          )}
+
+          <div style={{display:"flex",gap:10}}>
+            <button onClick={onClose} style={{flex:1,padding:"11px",borderRadius:10,
+              border:"1px solid rgba(255,255,255,.1)",background:"transparent",
+              color:"#64748B",fontSize:13,fontWeight:600,cursor:"pointer"}}>Batal</button>
+            <button onClick={handleSave} disabled={loading||!oldPass||!newPass||!confirm} style={{
+              flex:2,padding:"11px",borderRadius:10,border:"none",
+              background: loading||!oldPass||!newPass||!confirm
+                ? "#1E293B"
+                : `linear-gradient(135deg,${user.color},${user.color}CC)`,
+              color: loading||!oldPass||!newPass||!confirm ? "#334155":"#000",
+              fontSize:13,fontWeight:700,
+              cursor:loading||!oldPass||!newPass||!confirm?"not-allowed":"pointer",
+              transition:"all .2s",
+            }}>
+              {loading ? "⏳ Menyimpan..." : "🔐 Simpan Password"}
+            </button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
 // ─── LOGIN ────────────────────────────────────────────────────────────────────
-function Login({onLogin}) {
+function Login({onLogin, verifyPwd}) {
   const [u,setU]=useState(""); const [p,setP]=useState(""); const [show,setShow]=useState(false);
   const [err,setErr]=useState(""); const [shake,setShake]=useState(false); const [loading,setLoading]=useState(false);
+  const [showForgot,setShowForgot]=useState(false);
 
   const submit=()=>{
     setLoading(true);
     setTimeout(()=>{
-      const user=USERS[u.toLowerCase().trim()];
-      if(user && user.password===p){ onLogin({username:u.toLowerCase().trim(),...user}); }
+      const ukey=u.toLowerCase().trim();
+      const user=USERS[ukey];
+      const checkFn = verifyPwd || verifyPassword;
+      if(user && checkFn(ukey, p)){ onLogin({username:ukey,...user}); }
       else { setErr("Username atau password salah."); setShake(true); setTimeout(()=>setShake(false),500); }
       setLoading(false);
     },600);
@@ -153,7 +750,7 @@ function Login({onLogin}) {
           <div style={{fontSize:11,color:"#334155",letterSpacing:".2em",marginTop:4}}>FEE MANAGEMENT SYSTEM</div>
         </div>
         <div style={{background:"rgba(255,255,255,.025)",border:"1px solid rgba(255,255,255,.07)",borderRadius:20,
-          padding:28,backdropFilter:"blur(20px)",boxShadow:"0 24px 60px rgba(0,0,0,.4)",
+          padding:"24px 20px",backdropFilter:"blur(20px)",boxShadow:"0 24px 60px rgba(0,0,0,.4)",
           animation:shake?"shake .4s ease":"none"}}>
           <p style={{fontSize:14,fontWeight:600,color:"#64748B",marginBottom:20}}>Masuk ke Akun</p>
           <div style={{marginBottom:14}}>
@@ -179,11 +776,17 @@ function Login({onLogin}) {
             boxShadow:loading?"none":"0 4px 20px rgba(99,102,241,.4)",transition:"all .2s"}}>
             {loading?<span style={{animation:"pulse2 1s infinite",display:"inline-block"}}>Memverifikasi...</span>:"Masuk →"}
           </button>
-          <div style={{marginTop:18,padding:"12px 14px",background:"rgba(255,255,255,.02)",borderRadius:10,border:"1px solid rgba(255,255,255,.04)"}}>
+          {/* Lupa password link */}
+          <div style={{textAlign:"center",marginTop:12}}>
+            <button onClick={()=>setShowForgot(true)} style={{background:"none",border:"none",
+              color:"#475569",fontSize:12,cursor:"pointer",textDecoration:"underline",
+              textUnderlineOffset:3}}>Lupa password?</button>
+          </div>
+          <div style={{marginTop:10,padding:"12px 14px",background:"rgba(255,255,255,.02)",borderRadius:10,border:"1px solid rgba(255,255,255,.04)"}}>
             <p style={{fontSize:10,color:"#334155",marginBottom:6,letterSpacing:".08em"}}>AKUN TERSEDIA</p>
             <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
               {Object.entries(USERS).map(([k,v])=>(
-                <span key={k} onClick={()=>{setU(k);setP(v.password);setErr("");}}
+                <span key={k} onClick={()=>{setU(k);setP("");setErr("");}}
                   style={{padding:"3px 10px",borderRadius:99,fontSize:11,fontWeight:700,
                     background:`${v.color}15`,color:v.color,border:`1px solid ${v.color}30`,cursor:"pointer"}}>
                   {v.label}
@@ -193,6 +796,8 @@ function Login({onLogin}) {
           </div>
         </div>
       </div>
+      {showForgot && <ForgotPasswordModal onClose={()=>setShowForgot(false)}/>
+      }
     </div>
   );
 }
@@ -456,8 +1061,9 @@ Bukti transfer terlampir 🙏`}
 
 
 // ─── ADMIN DASHBOARD ─────────────────────────────────────────────────────────
-function AdminDashboard({user, onLogout}) {
+function AdminDashboard({user, onLogout, refreshPwdMap}) {
   const [tab,setTab]=useState("overview");
+  const [showChangePwd,setShowChangePwd]=useState(false);
   const [data,setData]=useState(DEMO_TRANS);
   const [loading,setLoading]=useState(false);
   const [toasts,setToasts]=useState([]);
@@ -546,6 +1152,25 @@ function AdminDashboard({user, onLogout}) {
     addToast(`Tarik tabungan ${agent} berhasil dicatat!`);
   };
 
+  // Delete (single or bulk) — onDelete(ids:string[], isBulk:bool)
+  const handleDelete=(ids, isBulk=false)=>{
+    const msg = isBulk ? `Hapus ${ids.length} transaksi yang dipilih?` : "Hapus transaksi ini?";
+    if(!window.confirm(msg)) return;
+    setData(d=>d.filter(r=>!ids.includes(r.id)));
+    addToast(isBulk ? `${ids.length} transaksi dihapus.` : "Transaksi dihapus.");
+    ids.forEach(id=>{ try{ fetch(GAS_URL,{method:"POST",body:JSON.stringify({action:"deleteRecord",id})}); }catch{} });
+  };
+
+  // Edit — buka modal edit
+  const [editModal,setEditModal]=useState(null);
+  const handleEdit=(rec)=>{ setEditModal(rec); };
+  const handleEditSave=(updated)=>{
+    setData(d=>d.map(r=>r.id===updated.id?{...r,...updated}:r));
+    addToast("Transaksi diperbarui!");
+    setEditModal(null);
+    try{ fetch(GAS_URL,{method:"POST",body:JSON.stringify({action:"updateRecord",...updated})}); }catch{}
+  };
+
   // All transactions sorted by date
   const allTrans=[...data].sort((a,b)=>new Date(b.tanggal)-new Date(a.tanggal));
   const filteredTrans = filterAgent==="all" ? allTrans : allTrans.filter(r=>r.type==="fee"||(r.agent===filterAgent)||(r.type==="promo")||(r.type==="fee"));
@@ -579,14 +1204,14 @@ function AdminDashboard({user, onLogout}) {
       {/* ══ HEADER ══ */}
       <header style={{position:"sticky",top:0,zIndex:100,background:"rgba(5,7,14,.92)",
         backdropFilter:"blur(20px)",borderBottom:"1px solid rgba(255,255,255,.06)"}}>
-        <div style={{maxWidth:1200,margin:"auto",padding:"0 20px",height:58,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <div style={{display:"flex",alignItems:"center",gap:16}}>
-            <div style={{display:"flex",alignItems:"center",gap:10}}>
+        <div className="header-inner" style={{maxWidth:1200,margin:"auto"}}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
               <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEj3D3dP2IHvCsgRuzkl9XRJDsb-Ttc98DnL3Y7EW7L_lnNNtw0qfrGpro_F9PEmt0Xz-SCxs2gWBVbYme0XCshjAGD5YGAfdW7JUq5lrlMn2hu_ynIL7oSVRppEcyICy7qY7A9iBY4k2d8igPSjL8UU12uQPmrsRGVAdUs4CCJMZlhCfVeOtvpF3yHvLcs8/s300/3.png" alt="logo" style={{width:28,height:28,objectFit:"contain",borderRadius:4}}/>
-              <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:".15em",color:"#F1F5F9"}}>LARIZ PROPERTY</span>
+              <span className="brand-title" style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:".15em",color:"#F1F5F9"}}>LARIZ PROPERTY</span>
             </div>
             <div style={{width:1,height:20,background:"rgba(255,255,255,.1)"}}/>
-            <div style={{display:"flex",gap:2}}>
+            <div className="desktop-nav header-nav">
               {TABS.map(t=>(
                 <button key={t.id} onClick={()=>setTab(t.id)} className="nav-item" style={{
                   padding:"6px 14px",borderRadius:8,border:"none",fontSize:12,fontWeight:600,cursor:"pointer",
@@ -598,10 +1223,13 @@ function AdminDashboard({user, onLogout}) {
               ))}
             </div>
           </div>
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <div style={{padding:"4px 12px",borderRadius:99,fontSize:11,fontWeight:700,
+          <div className="header-right">
+            <div className="admin-badge" style={{padding:"4px 12px",borderRadius:99,fontSize:11,fontWeight:700,
               background:"rgba(99,102,241,.15)",color:"#818CF8",border:"1px solid rgba(99,102,241,.3)"}}>ADMIN</div>
-            <button onClick={onLogout} className="btn-ghost" style={{padding:"6px 14px",borderRadius:8,border:"1px solid rgba(248,113,113,.2)",
+            <button onClick={()=>setShowChangePwd(true)} title="Ganti Password" style={{padding:"6px 10px",borderRadius:8,
+              border:"1px solid rgba(99,102,241,.2)",background:"rgba(99,102,241,.06)",
+              color:"#818CF8",fontSize:13,cursor:"pointer",transition:"all .15s"}} className="btn-ghost">🔑</button>
+            <button onClick={onLogout} className="btn-ghost logout-btn" style={{padding:"6px 14px",borderRadius:8,border:"1px solid rgba(248,113,113,.2)",
               background:"rgba(248,113,113,.06)",color:"#F87171",fontSize:12,fontWeight:600,cursor:"pointer",transition:"all .15s"}}>
               ⏏ Keluar
             </button>
@@ -609,7 +1237,26 @@ function AdminDashboard({user, onLogout}) {
         </div>
       </header>
 
-      <main style={{maxWidth:1200,margin:"auto",padding:"28px 20px 80px"}}>
+      {/* ══ MOBILE BOTTOM NAV ══ */}
+      <nav className="mobile-nav">
+        {TABS.map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{
+            flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,
+            padding:"8px 4px",border:"none",background:"transparent",cursor:"pointer",
+            color:tab===t.id?"#818CF8":"#334155",transition:"color .15s"}}>
+            <span style={{fontSize:18}}>{t.icon}</span>
+            <span style={{fontSize:9,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase"}}>{t.label}</span>
+            {tab===t.id&&<div style={{width:20,height:2,borderRadius:1,background:"#6366F1"}}/>}
+          </button>
+        ))}
+        <button onClick={onLogout} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,
+          padding:"8px 4px",border:"none",background:"transparent",cursor:"pointer",color:"#F87171"}}>
+          <span style={{fontSize:18}}>⏏</span>
+          <span style={{fontSize:9,fontWeight:700,letterSpacing:".06em",textTransform:"uppercase"}}>Keluar</span>
+        </button>
+      </nav>
+
+      <main style={{maxWidth:1200,margin:"auto",padding:"24px 16px 90px"}}>
 
         {/* ══════════════════════════════════════
             TAB: OVERVIEW
@@ -618,7 +1265,7 @@ function AdminDashboard({user, onLogout}) {
           <div style={{animation:"fadeUp .35s ease"}}>
 
             {/* Top KPI Cards */}
-            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:28}}>
+            <div className="grid-4 section-gap" style={{marginBottom:28}}>
               {[
                 {label:"Total Fee Masuk",  value:totalFeeIn,   color:"#34D399", icon:"📥", sub:`${feeRecords.length} transaksi`},
                 {label:"Net Commission",   value:totalNetComm, color:"#6366F1", icon:"✅", sub:"setelah promo & co-broke"},
@@ -639,12 +1286,12 @@ function AdminDashboard({user, onLogout}) {
             {/* Saldo Agen Cards */}
             <div style={{marginBottom:28}}>
               <SectionTitle>💳 Saldo Tabungan Agen</SectionTitle>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14}}>
+              <div className="grid-3">
                 {agentSaldo.map(ag=>(
                   <div key={ag.id} style={{background:`${ag.color}07`,border:`1px solid ${ag.color}20`,borderRadius:16,padding:"20px 22px",position:"relative",overflow:"hidden"}}>
                     {/* Decorative bg circle */}
                     <div style={{position:"absolute",right:-20,top:-20,width:90,height:90,borderRadius:"50%",background:`${ag.color}08`}}/>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
+                    <div className="saldo-card-inner" style={{marginBottom:16}}>
                       <div>
                         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
                           <div style={{width:32,height:32,borderRadius:9,background:`${ag.color}20`,border:`1px solid ${ag.color}35`,
@@ -667,7 +1314,7 @@ function AdminDashboard({user, onLogout}) {
                     <div style={{fontFamily:"'DM Mono',monospace",fontSize:24,fontWeight:700,color:ag.color,marginBottom:12}}>
                       <AnimNum value={ag.saldo}/>
                     </div>
-                    <div style={{display:"flex",gap:16}}>
+                    <div className="stat-row" style={{gap:16}}>
                       <div>
                         <div style={{fontSize:10,color:"#334155"}}>Total Masuk</div>
                         <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:"#64748B"}}>{rpS(ag.totalSaving)}</div>
@@ -699,14 +1346,14 @@ function AdminDashboard({user, onLogout}) {
             {/* Statistik Chart */}
             <div style={{marginBottom:28}}>
               <SectionTitle>📈 Statistik 6 Bulan Terakhir</SectionTitle>
-              <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:14}}>
+              <div className="grid-2">
                 {/* Bar chart */}
                 <div style={{background:"rgba(255,255,255,.02)",border:"1px solid rgba(255,255,255,.07)",borderRadius:16,padding:"20px 24px"}}>
                   <p style={{fontSize:12,fontWeight:600,color:"#64748B",marginBottom:20}}>Fee Masuk per Bulan</p>
                   {monthlyStats.length===0
                     ? <div style={{padding:40,textAlign:"center",color:"#334155"}}>Belum ada data</div>
                     : (
-                    <div style={{display:"flex",gap:8,alignItems:"flex-end",height:160}}>
+                    <div style={{display:"flex",gap:6,alignItems:"flex-end",height:140}}>
                       {monthlyStats.map(m=>{
                         const pct=(m.fee/maxStat)*100;
                         const pctNet=(m.net/maxStat)*100;
@@ -761,7 +1408,7 @@ function AdminDashboard({user, onLogout}) {
             <div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
                 <SectionTitle nomb>📒 Tabel Saldo — Pendapatan & Pengeluaran</SectionTitle>
-                <div style={{display:"flex",gap:6}}>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                   {["all","aris","argo","darma"].map(a=>(
                     <button key={a} onClick={()=>setFilterAgent(a)} style={{
                       padding:"5px 12px",borderRadius:8,fontSize:11,fontWeight:700,cursor:"pointer",border:"none",
@@ -772,7 +1419,7 @@ function AdminDashboard({user, onLogout}) {
                   ))}
                 </div>
               </div>
-              <SaldoTable data={allTrans} agentSaldo={agentSaldo} filterAgent={filterAgent}/>
+              <SaldoTable data={allTrans} agentSaldo={agentSaldo} filterAgent={filterAgent} onDelete={handleDelete} onEdit={handleEdit}/>
             </div>
           </div>
         )}
@@ -783,7 +1430,7 @@ function AdminDashboard({user, onLogout}) {
         {tab==="input-fee" && (
           <div style={{animation:"fadeUp .3s ease"}}>
             <SectionTitle>💰 Input Fee Transaksi</SectionTitle>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20}}>
+            <div className="grid-2-eq">
               {/* Form */}
               <div style={{display:"flex",flexDirection:"column",gap:14}}>
                 <Panel title="Info Transaksi" accent="#6366F1">
@@ -801,7 +1448,6 @@ function AdminDashboard({user, onLogout}) {
                 </Panel>
                 <Panel title="Detail Fee" accent="#10B981">
                   <MoneyFld label="Fee Lariz Property (Total Masuk)" value={feeForm.feeLariz} onChange={setMoney(feeForm,setFeeForm,"feeLariz")}/>
-                  <MoneyFld label="Promo (misal: mesin cuci)" value={feeForm.promo} onChange={setMoney(feeForm,setFeeForm,"promo")}/>
                   <MoneyFld label="Fee Agent BT / Co-Broke" value={feeForm.feeAgentBT} onChange={setMoney(feeForm,setFeeForm,"feeAgentBT")}/>
                   <Fld label="Keterangan">
                     <textarea style={{...S.inp,minHeight:56,resize:"vertical"}} value={feeForm.keterangan} onChange={e=>setFeeForm(f=>({...f,keterangan:e.target.value}))} placeholder="Catatan..."/>
@@ -815,7 +1461,6 @@ function AdminDashboard({user, onLogout}) {
               <div style={{display:"flex",flexDirection:"column",gap:14}}>
                 <Panel title="Preview Kalkulasi" accent="#F59E0B">
                   <AlcRow label="Fee Lariz" value={feeCalc.fee} green/>
-                  <AlcRow label="Promo" value={feeCalc.promo} red/>
                   <AlcRow label="Fee Agent BT" value={feeCalc.feeAgentBT} red/>
                   <div style={{background:"rgba(99,102,241,.1)",border:"1px solid rgba(99,102,241,.3)",borderRadius:9,
                     padding:"10px 14px",display:"flex",justifyContent:"space-between",marginTop:6}}>
@@ -842,7 +1487,7 @@ function AdminDashboard({user, onLogout}) {
             TAB: INPUT PROMO
         ══════════════════════════════════════ */}
         {tab==="input-promo" && (
-          <div style={{animation:"fadeUp .3s ease",maxWidth:560}}>
+          <div style={{animation:"fadeUp .3s ease",maxWidth:600}}>
             <SectionTitle>📤 Input Pengeluaran / Promo</SectionTitle>
             <Panel title="Catat Pengeluaran Operasional" accent="#F87171">
               <div style={{marginBottom:12,padding:"10px 14px",background:"rgba(248,113,113,.07)",border:"1px solid rgba(248,113,113,.15)",borderRadius:9}}>
@@ -889,7 +1534,7 @@ function AdminDashboard({user, onLogout}) {
               <SectionTitle nomb>📋 Riwayat Semua Transaksi</SectionTitle>
               <div style={{fontSize:12,color:"#334155"}}>{allTrans.length} total record</div>
             </div>
-            <FullHistoryTable data={allTrans} agents={AGENTS}/>
+            <FullHistoryTable data={allTrans} agents={AGENTS} onDelete={handleDelete} onEdit={handleEdit}/>
           </div>
         )}
 
@@ -906,28 +1551,122 @@ function AdminDashboard({user, onLogout}) {
       )}
 
       <Toast items={toasts} onRemove={id=>setToasts(t=>t.filter(x=>x.id!==id))}/>
+      {editModal && <EditRecordModal rec={editModal} onSave={handleEditSave} onClose={()=>setEditModal(null)}/>}
     </div>
   );
 }
 
+// ─── EDIT RECORD MODAL ───────────────────────────────────────────────────────
+function EditRecordModal({rec, onSave, onClose}) {
+  const isFee  = rec.type==="fee";
+  const isProm = rec.type==="promo";
+  const isWd   = rec.type==="withdraw";
+
+  const [form, setForm] = useState({...rec});
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+  const setMon = k => e => { const r=e.target.value.replace(/\D/g,""); set(k, r?parseInt(r).toString().replace(/\B(?=(\d{3})+(?!\d))/g,".") :""); };
+  const num = k => parseFloat(String(form[k]).replace(/[^0-9]/g,""))||0;
+
+  const save = () => {
+    const updated = {...form};
+    if(isFee) {
+      const net = num("feeLariz") - num("feeAgentBT");
+      const bdb=net*.4,aris=net*.225,argo=net*.225,darma=net*.15;
+      Object.assign(updated,{feeLariz:num("feeLariz"),feeAgentBT:num("feeAgentBT"),
+        netCommission:net,bdb,aris,argo,darma,
+        opBdb:bdb*.7,savingAris:bdb*.1,savingArgo:bdb*.1,savingDarma:bdb*.1});
+    }
+    if(isProm) updated.jumlah = num("jumlah");
+    if(isWd)   updated.jumlah = num("jumlah");
+    onSave(updated);
+  };
+
+  const typeLabel = isFee?"FEE":isProm?"PROMO":"TARIK";
+  const typeColor = isFee?"#34D399":isProm?"#F87171":"#F59E0B";
+
+  return (
+    <Modal title="EDIT TRANSAKSI" onClose={onClose} width={480}>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:18}}>
+        <span style={{padding:"3px 10px",borderRadius:99,fontSize:11,fontWeight:700,
+          background:`${typeColor}15`,color:typeColor,border:`1px solid ${typeColor}30`}}>{typeLabel}</span>
+        <span style={{fontSize:12,color:"#475569"}}>ID: {rec.id}</span>
+      </div>
+
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        <div>
+          <label style={S.lbl}>Tanggal</label>
+          <input type="date" value={form.tanggal||""} onChange={e=>set("tanggal",e.target.value)} style={S.inp}/>
+        </div>
+
+        {isFee && <>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <div><label style={S.lbl}>Nama Dev</label><input value={form.namaDev||""} onChange={e=>set("namaDev",e.target.value)} style={S.inp}/></div>
+            <div><label style={S.lbl}>Nama Konsumen</label><input value={form.namaKonsumen||""} onChange={e=>set("namaKonsumen",e.target.value)} style={S.inp}/></div>
+          </div>
+          <div>
+            <label style={S.lbl}>Fee Lariz Property (Rp)</label>
+            <div style={{position:"relative"}}>
+              <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:11,color:"#475569",fontFamily:"'DM Mono',monospace"}}>Rp</span>
+              <input value={form.feeLariz||""} onChange={setMon("feeLariz")} style={{...S.inp,paddingLeft:28}}/>
+            </div>
+          </div>
+          <div>
+            <label style={S.lbl}>Fee Agent BT (Rp)</label>
+            <div style={{position:"relative"}}>
+              <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:11,color:"#475569",fontFamily:"'DM Mono',monospace"}}>Rp</span>
+              <input value={form.feeAgentBT||""} onChange={setMon("feeAgentBT")} style={{...S.inp,paddingLeft:28}}/>
+            </div>
+          </div>
+          <div style={{padding:"10px 12px",background:"rgba(99,102,241,.08)",border:"1px solid rgba(99,102,241,.2)",borderRadius:9,display:"flex",justifyContent:"space-between"}}>
+            <span style={{fontSize:12,color:"#64748B"}}>Net Commission (otomatis)</span>
+            <span style={{fontFamily:"'DM Mono',monospace",color:"#818CF8",fontWeight:700,fontSize:13}}>
+              {rp(num("feeLariz")-num("feeAgentBT"))}
+            </span>
+          </div>
+        </>}
+
+        {(isProm||isWd) && <>
+          <div><label style={S.lbl}>Keterangan</label><input value={form.keterangan||""} onChange={e=>set("keterangan",e.target.value)} style={S.inp}/></div>
+          <div>
+            <label style={S.lbl}>Jumlah (Rp)</label>
+            <div style={{position:"relative"}}>
+              <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:11,color:"#475569",fontFamily:"'DM Mono',monospace"}}>Rp</span>
+              <input value={form.jumlah||""} onChange={setMon("jumlah")} style={{...S.inp,paddingLeft:28}}/>
+            </div>
+          </div>
+        </>}
+
+        {isFee && <div><label style={S.lbl}>Keterangan</label><textarea value={form.keterangan||""} onChange={e=>set("keterangan",e.target.value)} style={{...S.inp,minHeight:50,resize:"vertical"}}/></div>}
+      </div>
+
+      <div style={{display:"flex",gap:10,marginTop:20}}>
+        <button onClick={onClose} style={{flex:1,padding:"11px",borderRadius:10,border:"1px solid rgba(255,255,255,.1)",background:"transparent",color:"#64748B",fontSize:13,fontWeight:600,cursor:"pointer"}}>Batal</button>
+        <button onClick={save} style={{flex:2,padding:"11px",borderRadius:10,border:"none",
+          background:"linear-gradient(135deg,#6366F1,#4F46E5)",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",
+          boxShadow:"0 4px 16px rgba(99,102,241,.3)"}}>💾 Simpan Perubahan</button>
+      </div>
+    </Modal>
+  );
+}
+
 // ─── SALDO TABLE ─────────────────────────────────────────────────────────────
-function SaldoTable({ data, agentSaldo, filterAgent }) {
+function SaldoTable({ data, agentSaldo, filterAgent, onDelete, onEdit }) {
+  const [checked, setChecked] = useState({});
+  const [hoverId, setHoverId] = useState(null);
+
   const rows = data.map(r => {
     if(r.type==="fee") return {
-      tanggal:r.tanggal, desc:`${r.namaDev} / ${r.namaKonsumen}`, type:"fee",
-      in: parseFloat(r.feeLariz)||0, out:0, net:parseFloat(r.netCommission)||0, color:"#34D399",badge:"FEE",
+      id:r.id, tanggal:r.tanggal, desc:`${r.namaDev} / ${r.namaKonsumen}`, type:"fee",
+      in:parseFloat(r.feeLariz)||0, out:0, net:parseFloat(r.netCommission)||0, color:"#34D399", badge:"FEE", raw:r,
     };
     if(r.type==="promo") return {
-      tanggal:r.tanggal, desc:r.keterangan, type:"promo",
-      in:0, out:parseFloat(r.jumlah)||0, net:-(parseFloat(r.jumlah)||0), color:"#F87171",badge:"PROMO",
+      id:r.id, tanggal:r.tanggal, desc:r.keterangan, type:"promo",
+      in:0, out:parseFloat(r.jumlah)||0, net:-(parseFloat(r.jumlah)||0), color:"#F87171", badge:"PROMO", raw:r,
     };
-    if(r.type==="withdraw") {
-      const ag=agentSaldo.find(a=>a.id===r.agent);
-      return {
-        tanggal:r.tanggal, desc:`Tarik Tabungan — ${r.agent?.charAt(0).toUpperCase()+r.agent?.slice(1)}`, type:"withdraw",
-        in:0, out:parseFloat(r.jumlah)||0, net:-(parseFloat(r.jumlah)||0), color:"#F59E0B",badge:"TARIK",
-      };
-    }
+    if(r.type==="withdraw") return {
+      id:r.id, tanggal:r.tanggal, desc:`Tarik Tabungan — ${r.agent?.charAt(0).toUpperCase()+r.agent?.slice(1)}`, type:"withdraw",
+      in:0, out:parseFloat(r.jumlah)||0, net:-(parseFloat(r.jumlah)||0), color:"#F59E0B", badge:"TARIK", raw:r,
+    };
     return null;
   }).filter(Boolean);
 
@@ -936,130 +1675,361 @@ function SaldoTable({ data, agentSaldo, filterAgent }) {
   let runBalance=0;
   const rowsWithBalance=[...filtered].reverse().map(r=>{ runBalance+=r.net; return{...r,balance:runBalance}; }).reverse();
 
-  const totalIn=filtered.reduce((s,r)=>s+r.in,0);
-  const totalOut=filtered.reduce((s,r)=>s+r.out,0);
+  const totalIn  = filtered.reduce((s,r)=>s+r.in,0);
+  const totalOut = filtered.reduce((s,r)=>s+r.out,0);
+
+  const checkedIds  = Object.keys(checked).filter(k=>checked[k]);
+  const allChecked  = filtered.length>0 && checkedIds.length===filtered.length;
+  const someChecked = checkedIds.length>0 && !allChecked;
+
+  const toggleAll = () => {
+    if(allChecked) setChecked({});
+    else { const n={}; filtered.forEach(r=>n[r.id]=true); setChecked(n); }
+  };
+  const toggleOne = id => setChecked(c=>({...c,[id]:!c[id]}));
+
+  const handleBulkDelete = () => { onDelete && onDelete(checkedIds, true); setChecked({}); };
 
   return(
-    <div style={{background:"rgba(255,255,255,.02)",border:"1px solid rgba(255,255,255,.06)",borderRadius:16,overflow:"hidden"}}>
-      <div style={{overflowX:"auto"}}>
-        <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
-          <thead>
-            <tr style={{background:"rgba(255,255,255,.03)",borderBottom:"1px solid rgba(255,255,255,.06)"}}>
-              {["Tanggal","Keterangan","Tipe","Pendapatan","Pengeluaran","Saldo Berjalan"].map(h=>(
-                <th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:10,fontWeight:700,
-                  letterSpacing:".1em",color:"#334155",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rowsWithBalance.map((r,i)=>(
-              <tr key={i} className="row-hover" style={{borderBottom:"1px solid rgba(255,255,255,.04)",background:i%2===0?"transparent":"rgba(255,255,255,.012)"}}>
-                <td style={S.td}><span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:"#475569"}}>{fmtDate(r.tanggal)}</span></td>
-                <td style={S.td}><span style={{color:"#CBD5E1",fontWeight:500}}>{r.desc}</span></td>
-                <td style={S.td}>
-                  <span style={{padding:"2px 8px",borderRadius:99,fontSize:10,fontWeight:700,
-                    background:`${r.color}15`,color:r.color,border:`1px solid ${r.color}30`}}>{r.badge}</span>
-                </td>
-                <td style={S.td}><span style={{fontFamily:"'DM Mono',monospace",color:"#34D399",fontWeight:600}}>{r.in>0?rp(r.in):"—"}</span></td>
-                <td style={S.td}><span style={{fontFamily:"'DM Mono',monospace",color:"#F87171",fontWeight:600}}>{r.out>0?rp(r.out):"—"}</span></td>
-                <td style={S.td}>
-                  <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,
-                    color:r.balance>=0?"#6EE7B7":"#FCA5A5"}}>{rp(r.balance)}</span>
-                </td>
+    <div>
+      {/* Bulk action toolbar */}
+      <div style={{
+        height: checkedIds.length>0 ? "auto" : 0,
+        overflow:"hidden",
+        transition:"all .25s ease",
+        marginBottom: checkedIds.length>0 ? 10 : 0,
+      }}>
+        <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",
+          background:"rgba(239,68,68,.08)",border:"1px solid rgba(239,68,68,.25)",borderRadius:10,flexWrap:"wrap"}}>
+          <span style={{fontSize:13,fontWeight:600,color:"#F87171"}}>
+            {checkedIds.length} transaksi dipilih
+          </span>
+          <div style={{flex:1}}/>
+          <button onClick={()=>setChecked({})} style={{padding:"5px 12px",borderRadius:7,border:"1px solid rgba(255,255,255,.1)",
+            background:"transparent",color:"#64748B",fontSize:12,fontWeight:600,cursor:"pointer"}}>
+            Batal Pilih
+          </button>
+          <button onClick={handleBulkDelete} style={{padding:"5px 14px",borderRadius:7,border:"none",
+            background:"linear-gradient(135deg,#EF4444,#DC2626)",color:"#fff",fontSize:12,fontWeight:700,
+            cursor:"pointer",boxShadow:"0 2px 10px rgba(239,68,68,.3)",display:"flex",alignItems:"center",gap:6}}>
+            🗑 Hapus {checkedIds.length} data
+          </button>
+        </div>
+      </div>
+
+      <div style={{background:"rgba(255,255,255,.02)",border:"1px solid rgba(255,255,255,.06)",borderRadius:16,overflow:"hidden"}}>
+        <div className="table-scroll">
+          <table style={{width:"100%",minWidth:600,borderCollapse:"collapse",fontSize:13}}>
+            <thead>
+              <tr style={{background:"rgba(255,255,255,.03)",borderBottom:"1px solid rgba(255,255,255,.06)"}}>
+                {/* Checkbox all */}
+                <th style={{padding:"10px 14px",width:40}}>
+                  <div onClick={toggleAll} style={{
+                    width:16,height:16,borderRadius:4,cursor:"pointer",
+                    background: allChecked?"#6366F1":someChecked?"rgba(99,102,241,.4)":"transparent",
+                    border:`2px solid ${allChecked||someChecked?"#6366F1":"rgba(255,255,255,.15)"}`,
+                    display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:"#fff",
+                    transition:"all .15s",
+                  }}>
+                    {allChecked?"✓":someChecked?"–":""}
+                  </div>
+                </th>
+                {["Tanggal","Keterangan","Tipe","Pendapatan","Pengeluaran","Saldo","Aksi"].map(h=>(
+                  <th key={h} style={{padding:"10px 10px",textAlign:"left",fontSize:10,fontWeight:700,
+                    letterSpacing:".1em",color:"#334155",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr style={{background:"rgba(255,255,255,.04)",borderTop:"2px solid rgba(255,255,255,.1)"}}>
-              <td colSpan={3} style={{padding:"11px 14px",fontSize:11,fontWeight:700,letterSpacing:".1em",color:"#334155",textTransform:"uppercase"}}>
-                TOTAL ({filtered.length} transaksi)
-              </td>
-              <td style={S.td}><span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,color:"#34D399",fontSize:13}}>{rp(totalIn)}</span></td>
-              <td style={S.td}><span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,color:"#F87171",fontSize:13}}>{rp(totalOut)}</span></td>
-              <td style={S.td}>
-                <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:13,
-                  color:(totalIn-totalOut)>=0?"#6EE7B7":"#FCA5A5"}}>{rp(totalIn-totalOut)}</span>
-              </td>
-            </tr>
-          </tfoot>
-        </table>
+            </thead>
+            <tbody>
+              {rowsWithBalance.map((r,i)=>{
+                const isChecked = !!checked[r.id];
+                const isHover   = hoverId===r.id;
+                return(
+                  <tr key={r.id||i}
+                    onMouseEnter={()=>setHoverId(r.id)}
+                    onMouseLeave={()=>setHoverId(null)}
+                    style={{
+                      borderBottom:"1px solid rgba(255,255,255,.04)",
+                      background: isChecked
+                        ? "rgba(99,102,241,.08)"
+                        : isHover
+                        ? "rgba(255,255,255,.04)"
+                        : i%2===0?"transparent":"rgba(255,255,255,.012)",
+                      transition:"background .1s",
+                    }}>
+                    {/* Checkbox */}
+                    <td style={{padding:"10px 14px"}}>
+                      <div onClick={()=>toggleOne(r.id)} style={{
+                        width:16,height:16,borderRadius:4,cursor:"pointer",flexShrink:0,
+                        background:isChecked?"#6366F1":"transparent",
+                        border:`2px solid ${isChecked?"#6366F1":"rgba(255,255,255,.15)"}`,
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                        fontSize:10,color:"#fff",transition:"all .15s",
+                      }}>
+                        {isChecked?"✓":""}
+                      </div>
+                    </td>
+                    <td style={S.td}><span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:"#475569",whiteSpace:"nowrap"}}>{fmtDate(r.tanggal)}</span></td>
+                    <td style={{...S.td,maxWidth:200}}>
+                      <span style={{color:"#CBD5E1",fontWeight:500,display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.desc}</span>
+                    </td>
+                    <td style={S.td}>
+                      <span style={{padding:"2px 8px",borderRadius:99,fontSize:10,fontWeight:700,
+                        background:`${r.color}15`,color:r.color,border:`1px solid ${r.color}30`,whiteSpace:"nowrap"}}>{r.badge}</span>
+                    </td>
+                    <td style={S.td}><span style={{fontFamily:"'DM Mono',monospace",color:"#34D399",fontWeight:600,whiteSpace:"nowrap"}}>{r.in>0?rp(r.in):"—"}</span></td>
+                    <td style={S.td}><span style={{fontFamily:"'DM Mono',monospace",color:"#F87171",fontWeight:600,whiteSpace:"nowrap"}}>{r.out>0?rp(r.out):"—"}</span></td>
+                    <td style={S.td}><span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,whiteSpace:"nowrap",
+                      color:r.balance>=0?"#6EE7B7":"#FCA5A5"}}>{rp(r.balance)}</span></td>
+                    {/* Aksi */}
+                    <td style={{...S.td,whiteSpace:"nowrap"}}>
+                      <div style={{display:"flex",gap:5,opacity:isHover||isChecked?1:.3,transition:"opacity .15s"}}>
+                        <button onClick={()=>onEdit&&onEdit(r.raw)} title="Edit"
+                          style={{width:28,height:28,borderRadius:7,border:"1px solid rgba(99,102,241,.3)",
+                            background:"rgba(99,102,241,.1)",color:"#818CF8",cursor:"pointer",fontSize:13,
+                            display:"flex",alignItems:"center",justifyContent:"center",transition:"all .15s"}}
+                          onMouseEnter={e=>{e.currentTarget.style.background="rgba(99,102,241,.25)";}}
+                          onMouseLeave={e=>{e.currentTarget.style.background="rgba(99,102,241,.1)";}}>
+                          ✏️
+                        </button>
+                        <button onClick={()=>onDelete&&onDelete([r.id], false)} title="Hapus"
+                          style={{width:28,height:28,borderRadius:7,border:"1px solid rgba(239,68,68,.3)",
+                            background:"rgba(239,68,68,.1)",color:"#F87171",cursor:"pointer",fontSize:13,
+                            display:"flex",alignItems:"center",justifyContent:"center",transition:"all .15s"}}
+                          onMouseEnter={e=>{e.currentTarget.style.background="rgba(239,68,68,.25)";}}
+                          onMouseLeave={e=>{e.currentTarget.style.background="rgba(239,68,68,.1)";}}>
+                          🗑
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {rowsWithBalance.length===0&&(
+                <tr><td colSpan={8} style={{padding:40,textAlign:"center",color:"#334155"}}>
+                  <div style={{fontSize:28,marginBottom:8}}>📭</div>Belum ada data.
+                </td></tr>
+              )}
+            </tbody>
+            <tfoot>
+              <tr style={{background:"rgba(255,255,255,.04)",borderTop:"2px solid rgba(255,255,255,.1)"}}>
+                <td colSpan={4} style={{padding:"11px 14px",fontSize:11,fontWeight:700,letterSpacing:".1em",color:"#334155",textTransform:"uppercase"}}>
+                  TOTAL ({filtered.length} transaksi)
+                </td>
+                <td style={S.td}><span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,color:"#34D399",fontSize:13}}>{rp(totalIn)}</span></td>
+                <td style={S.td}><span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,color:"#F87171",fontSize:13}}>{rp(totalOut)}</span></td>
+                <td style={S.td}><span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,fontSize:13,
+                  color:(totalIn-totalOut)>=0?"#6EE7B7":"#FCA5A5"}}>{rp(totalIn-totalOut)}</span></td>
+                <td/>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
       </div>
     </div>
   );
 }
 
 // ─── FULL HISTORY TABLE ───────────────────────────────────────────────────────
-function FullHistoryTable({ data, agents }) {
-  const [expanded,setExpanded]=useState(null);
-  return(
-    <div style={{background:"rgba(255,255,255,.02)",border:"1px solid rgba(255,255,255,.06)",borderRadius:16,overflow:"hidden"}}>
-      <div style={{overflowX:"auto"}}>
-        <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
-          <thead>
-            <tr style={{background:"rgba(255,255,255,.03)",borderBottom:"1px solid rgba(255,255,255,.06)"}}>
-              {["Tanggal","Tipe","Detail","Jumlah Utama","Net / Alokasi"].map(h=>(
-                <th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:10,fontWeight:700,letterSpacing:".1em",color:"#334155",textTransform:"uppercase"}}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((r,i)=>{
-              const isExp=expanded===i;
-              const isFee=r.type==="fee";
-              const isPromo=r.type==="promo";
-              const isWd=r.type==="withdraw";
-              const typeInfo = isFee?{label:"FEE",color:"#34D399"}:isPromo?{label:"PROMO",color:"#F87171"}:{label:"TARIK",color:"#F59E0B"};
-              const ag=isWd?agents.find(a=>a.id===r.agent):null;
-              return(
-                <>
-                <tr key={i} className="row-hover" onClick={()=>isFee&&setExpanded(isExp?null:i)}
-                  style={{borderBottom:"1px solid rgba(255,255,255,.04)",cursor:isFee?"pointer":"default",
-                    background:isExp?"rgba(99,102,241,.06)":i%2===0?"transparent":"rgba(255,255,255,.012)"}}>
-                  <td style={S.td}><span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:"#475569"}}>{fmtDate(r.tanggal)}</span></td>
-                  <td style={S.td}>
-                    <span style={{padding:"2px 8px",borderRadius:99,fontSize:10,fontWeight:700,
-                      background:`${typeInfo.color}15`,color:typeInfo.color,border:`1px solid ${typeInfo.color}30`}}>{typeInfo.label}</span>
-                  </td>
-                  <td style={S.td}>
-                    {isFee&&<><span style={{fontWeight:600,color:"#CBD5E1"}}>{r.namaDev}</span><span style={{color:"#475569"}}> / {r.namaKonsumen}</span></>}
-                    {isPromo&&<span style={{color:"#94A3B8"}}>{r.keterangan}</span>}
-                    {isWd&&<span style={{color:"#94A3B8"}}>Tarik — <strong style={{color:ag?.color||"#E2E8F0"}}>{r.agent}</strong> · {r.keterangan}</span>}
-                  </td>
-                  <td style={S.td}>
-                    <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,
-                      color:isFee?"#34D399":"#F87171",fontSize:13}}>
-                      {isFee?rp(r.feeLariz):`- ${rp(r.jumlah)}`}
-                    </span>
-                  </td>
-                  <td style={S.td}>
-                    {isFee&&<span style={{fontFamily:"'DM Mono',monospace",color:"#818CF8",fontSize:13}}>{rp(r.netCommission)}</span>}
-                    {isWd&&<span style={{fontFamily:"'DM Mono',monospace",color:"#F59E0B",fontSize:13}}>{rp(r.jumlah)}</span>}
-                    {isFee&&<span style={{marginLeft:6,fontSize:10,color:"#334155"}}>▼ detail</span>}
-                  </td>
-                </tr>
-                {isExp&&isFee&&(
-                  <tr style={{background:"rgba(99,102,241,.04)",borderBottom:"1px solid rgba(255,255,255,.04)"}}>
-                    <td colSpan={5} style={{padding:"12px 18px"}}>
-                      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:8,animation:"fadeUp .2s ease"}}>
-                        {[["Promo",r.promo,"#F87171"],["Fee BT",r.feeAgentBT,"#F87171"],["BDB 40%",r.bdb,"#F59E0B"],
-                          ["Aris 22.5%",r.aris,"#22D3EE"],["Argo 22.5%",r.argo,"#F59E0B"],["Darma 15%",r.darma,"#A78BFA"],
-                          ["Operasional",r.opBdb,"#34D399"],["Saving Aris",r.savingAris,"#22D3EE"],
-                          ["Saving Argo",r.savingArgo,"#F59E0B"],["Saving Darma",r.savingDarma,"#A78BFA"],
-                        ].map(([l,v,c])=>(
-                          <div key={l} style={{background:"rgba(255,255,255,.03)",borderRadius:8,padding:"7px 10px"}}>
-                            <div style={{fontSize:9,color:"#334155",textTransform:"uppercase",letterSpacing:".07em"}}>{l}</div>
-                            <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:c,fontWeight:600}}>{rp(v)}</div>
+function FullHistoryTable({ data, agents, onDelete, onEdit }) {
+  const [expanded, setExpanded] = useState(null);
+  const [checked,  setChecked]  = useState({});
+  const [hoverId,  setHoverId]  = useState(null);
+
+  const checkedIds  = Object.keys(checked).filter(k => checked[k]);
+  const allChecked  = data.length > 0 && checkedIds.length === data.length;
+  const someChecked = checkedIds.length > 0 && !allChecked;
+
+  const toggleAll = () => {
+    if (allChecked) setChecked({});
+    else { const n={}; data.forEach(r => n[r.id]=true); setChecked(n); }
+  };
+  const toggleOne = id => setChecked(c => ({...c, [id]: !c[id]}));
+
+  const handleBulkDelete = () => {
+    onDelete && onDelete(checkedIds, true);
+    setChecked({});
+  };
+
+  return (
+    <div>
+      {/* ── Bulk toolbar ── */}
+      <div style={{
+        maxHeight: checkedIds.length > 0 ? 60 : 0,
+        overflow: "hidden", transition: "max-height .25s ease",
+        marginBottom: checkedIds.length > 0 ? 10 : 0,
+      }}>
+        <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",
+          background:"rgba(239,68,68,.08)",border:"1px solid rgba(239,68,68,.25)",borderRadius:10,flexWrap:"wrap"}}>
+          <span style={{fontSize:13,fontWeight:600,color:"#F87171"}}>
+            {checkedIds.length} transaksi dipilih
+          </span>
+          <div style={{flex:1}}/>
+          <button onClick={()=>setChecked({})} style={{padding:"5px 12px",borderRadius:7,
+            border:"1px solid rgba(255,255,255,.1)",background:"transparent",
+            color:"#64748B",fontSize:12,fontWeight:600,cursor:"pointer"}}>
+            Batal Pilih
+          </button>
+          <button onClick={handleBulkDelete} style={{padding:"5px 14px",borderRadius:7,border:"none",
+            background:"linear-gradient(135deg,#EF4444,#DC2626)",color:"#fff",
+            fontSize:12,fontWeight:700,cursor:"pointer",
+            boxShadow:"0 2px 10px rgba(239,68,68,.3)",
+            display:"flex",alignItems:"center",gap:6}}>
+            🗑 Hapus {checkedIds.length} data
+          </button>
+        </div>
+      </div>
+
+      <div style={{background:"rgba(255,255,255,.02)",border:"1px solid rgba(255,255,255,.06)",borderRadius:16,overflow:"hidden"}}>
+        <div className="table-scroll">
+          <table style={{width:"100%",minWidth:620,borderCollapse:"collapse",fontSize:13}}>
+            <thead>
+              <tr style={{background:"rgba(255,255,255,.03)",borderBottom:"1px solid rgba(255,255,255,.06)"}}>
+                {/* Checkbox all */}
+                <th style={{padding:"10px 14px",width:40}}>
+                  <div onClick={toggleAll} style={{
+                    width:16,height:16,borderRadius:4,cursor:"pointer",
+                    background: allChecked?"#6366F1":someChecked?"rgba(99,102,241,.4)":"transparent",
+                    border:`2px solid ${allChecked||someChecked?"#6366F1":"rgba(255,255,255,.15)"}`,
+                    display:"flex",alignItems:"center",justifyContent:"center",
+                    fontSize:10,color:"#fff",transition:"all .15s",
+                  }}>
+                    {allChecked?"✓":someChecked?"–":""}
+                  </div>
+                </th>
+                {["Tanggal","Tipe","Detail","Jumlah Utama","Net / Alokasi","Aksi"].map(h=>(
+                  <th key={h} style={{padding:"10px 10px",textAlign:"left",fontSize:10,fontWeight:700,
+                    letterSpacing:".1em",color:"#334155",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((r,i) => {
+                const isExp   = expanded === i;
+                const isFee   = r.type === "fee";
+                const isPromo = r.type === "promo";
+                const isWd    = r.type === "withdraw";
+                const typeInfo= isFee?{label:"FEE",color:"#34D399"}:isPromo?{label:"PROMO",color:"#F87171"}:{label:"TARIK",color:"#F59E0B"};
+                const ag      = isWd ? agents.find(a=>a.id===r.agent) : null;
+                const isChecked = !!checked[r.id];
+                const isHover   = hoverId === r.id;
+
+                return (
+                  <React.Fragment key={r.id||i}>
+                    <tr
+                      onMouseEnter={()=>setHoverId(r.id)}
+                      onMouseLeave={()=>setHoverId(null)}
+                      style={{
+                        borderBottom:"1px solid rgba(255,255,255,.04)",
+                        background: isChecked
+                          ? "rgba(99,102,241,.08)"
+                          : isHover
+                          ? "rgba(255,255,255,.04)"
+                          : isExp
+                          ? "rgba(99,102,241,.06)"
+                          : i%2===0?"transparent":"rgba(255,255,255,.012)",
+                        transition:"background .1s",
+                      }}>
+                      {/* Checkbox */}
+                      <td style={{padding:"10px 14px"}}>
+                        <div onClick={()=>toggleOne(r.id)} style={{
+                          width:16,height:16,borderRadius:4,cursor:"pointer",
+                          background:isChecked?"#6366F1":"transparent",
+                          border:`2px solid ${isChecked?"#6366F1":"rgba(255,255,255,.15)"}`,
+                          display:"flex",alignItems:"center",justifyContent:"center",
+                          fontSize:10,color:"#fff",transition:"all .15s",
+                        }}>
+                          {isChecked?"✓":""}
+                        </div>
+                      </td>
+                      <td style={S.td}>
+                        <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:"#475569",whiteSpace:"nowrap"}}>{fmtDate(r.tanggal)}</span>
+                      </td>
+                      <td style={S.td}>
+                        <span style={{padding:"2px 8px",borderRadius:99,fontSize:10,fontWeight:700,
+                          background:`${typeInfo.color}15`,color:typeInfo.color,
+                          border:`1px solid ${typeInfo.color}30`,whiteSpace:"nowrap"}}>{typeInfo.label}</span>
+                      </td>
+                      <td style={{...S.td,maxWidth:220}}>
+                        {isFee&&<><span style={{fontWeight:600,color:"#CBD5E1"}}>{r.namaDev}</span><span style={{color:"#475569"}}> / {r.namaKonsumen}</span></>}
+                        {isPromo&&<span style={{color:"#94A3B8"}}>{r.keterangan}</span>}
+                        {isWd&&<span style={{color:"#94A3B8"}}>Tarik — <strong style={{color:ag?.color||"#E2E8F0"}}>{r.agent}</strong> · {r.keterangan}</span>}
+                      </td>
+                      <td style={S.td}>
+                        <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,
+                          color:isFee?"#34D399":"#F87171",fontSize:13,whiteSpace:"nowrap"}}>
+                          {isFee?rp(r.feeLariz):`- ${rp(r.jumlah)}`}
+                        </span>
+                      </td>
+                      <td style={S.td}>
+                        <div style={{display:"flex",alignItems:"center",gap:6}}>
+                          {isFee&&<span style={{fontFamily:"'DM Mono',monospace",color:"#818CF8",fontSize:13,whiteSpace:"nowrap"}}>{rp(r.netCommission)}</span>}
+                          {isWd &&<span style={{fontFamily:"'DM Mono',monospace",color:"#F59E0B",fontSize:13,whiteSpace:"nowrap"}}>{rp(r.jumlah)}</span>}
+                          {isFee&&(
+                            <button onClick={()=>setExpanded(isExp?null:i)}
+                              style={{padding:"2px 7px",borderRadius:5,border:"1px solid rgba(255,255,255,.1)",
+                                background:"transparent",color:"#334155",fontSize:10,cursor:"pointer"}}>
+                              {isExp?"▲":"▼"}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                      {/* Aksi */}
+                      <td style={{...S.td,whiteSpace:"nowrap"}}>
+                        <div style={{display:"flex",gap:5,opacity:isHover||isChecked?1:.25,transition:"opacity .15s"}}>
+                          <button onClick={()=>onEdit&&onEdit(r)} title="Edit"
+                            style={{width:28,height:28,borderRadius:7,
+                              border:"1px solid rgba(99,102,241,.3)",
+                              background:"rgba(99,102,241,.1)",color:"#818CF8",
+                              cursor:"pointer",fontSize:13,display:"flex",
+                              alignItems:"center",justifyContent:"center",transition:"all .15s"}}
+                            onMouseEnter={e=>e.currentTarget.style.background="rgba(99,102,241,.25)"}
+                            onMouseLeave={e=>e.currentTarget.style.background="rgba(99,102,241,.1)"}>
+                            ✏️
+                          </button>
+                          <button onClick={()=>onDelete&&onDelete([r.id],false)} title="Hapus"
+                            style={{width:28,height:28,borderRadius:7,
+                              border:"1px solid rgba(239,68,68,.3)",
+                              background:"rgba(239,68,68,.1)",color:"#F87171",
+                              cursor:"pointer",fontSize:13,display:"flex",
+                              alignItems:"center",justifyContent:"center",transition:"all .15s"}}
+                            onMouseEnter={e=>e.currentTarget.style.background="rgba(239,68,68,.25)"}
+                            onMouseLeave={e=>e.currentTarget.style.background="rgba(239,68,68,.1)"}>
+                            🗑
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    {/* Expand detail fee */}
+                    {isExp && isFee && (
+                      <tr style={{background:"rgba(99,102,241,.04)",borderBottom:"1px solid rgba(255,255,255,.04)"}}>
+                        <td colSpan={7} style={{padding:"12px 18px"}}>
+                          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:8,animation:"fadeUp .2s ease"}}>
+                            {[["Fee BT",r.feeAgentBT,"#F87171"],["BDB 40%",r.bdb,"#F59E0B"],
+                              ["Aris 22.5%",r.aris,"#22D3EE"],["Argo 22.5%",r.argo,"#F59E0B"],["Darma 15%",r.darma,"#A78BFA"],
+                              ["Operasional",r.opBdb,"#34D399"],["Saving Aris",r.savingAris,"#22D3EE"],
+                              ["Saving Argo",r.savingArgo,"#F59E0B"],["Saving Darma",r.savingDarma,"#A78BFA"],
+                            ].map(([l,v,c])=>(
+                              <div key={l} style={{background:"rgba(255,255,255,.03)",borderRadius:8,padding:"7px 10px"}}>
+                                <div style={{fontSize:9,color:"#334155",textTransform:"uppercase",letterSpacing:".07em"}}>{l}</div>
+                                <div style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:c,fontWeight:600}}>{rp(v)}</div>
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    </td>
-                  </tr>
-                )}
-                </>
-              );
-            })}
-          </tbody>
-        </table>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+              {data.length===0&&(
+                <tr><td colSpan={7} style={{padding:40,textAlign:"center",color:"#334155"}}>
+                  <div style={{fontSize:28,marginBottom:8}}>📭</div>Belum ada data.
+                </td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
@@ -1206,8 +2176,9 @@ function WaRequestModal({user, saldo, onClose}) {
   );
 }
 
-function AgenDashboard({user, onLogout}) {
+function AgenDashboard({user, onLogout, refreshPwdMap}) {
   const [data,setData]=useState(DEMO_TRANS);
+  const [showChangePwd,setShowChangePwd]=useState(false);
   const [search,setSearch]=useState("");
   const [sortCol,setSortCol]=useState("tanggal");
   const [sortDir,setSortDir]=useState("desc");
@@ -1238,10 +2209,10 @@ function AgenDashboard({user, onLogout}) {
 
       {/* Header */}
       <header style={{position:"sticky",top:0,zIndex:100,background:"rgba(5,7,14,.94)",backdropFilter:"blur(20px)",borderBottom:"1px solid rgba(255,255,255,.06)"}}>
-        <div style={{maxWidth:1100,margin:"auto",padding:"0 20px",height:56,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div className="header-inner" style={{maxWidth:1100,margin:"auto"}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <div style={{width:36,height:36,borderRadius:10,background:`${user.color}18`,border:`1px solid ${user.color}35`,
-              display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Bebas Neue',sans-serif",fontSize:14,color:user.color,letterSpacing:".05em"}}>
+              display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Bebas Neue',sans-serif",fontSize:14,color:user.color,letterSpacing:".05em",flexShrink:0}}>
               {user.avatar}
             </div>
             <div>
@@ -1249,15 +2220,20 @@ function AgenDashboard({user, onLogout}) {
               <div style={{fontSize:10,color:"#334155",letterSpacing:".1em"}}>LARIZ PROPERTY · AGEN</div>
             </div>
           </div>
-          <button onClick={onLogout} style={{padding:"6px 14px",borderRadius:8,border:"1px solid rgba(248,113,113,.2)",
-            background:"rgba(248,113,113,.06)",color:"#F87171",fontSize:12,fontWeight:600,cursor:"pointer"}}>⏏ Keluar</button>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={()=>setShowChangePwd(true)} title="Ganti Password" style={{padding:"6px 10px",
+              borderRadius:8,border:`1px solid ${user.color}25`,background:`${user.color}08`,
+              color:user.color,fontSize:13,cursor:"pointer",transition:"all .15s"}} className="btn-ghost">🔑</button>
+            <button onClick={onLogout} style={{padding:"6px 14px",borderRadius:8,border:"1px solid rgba(248,113,113,.2)",
+              background:"rgba(248,113,113,.06)",color:"#F87171",fontSize:12,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>⏏ Keluar</button>
+          </div>
         </div>
       </header>
 
-      <div style={{maxWidth:1100,margin:"auto",padding:"24px 20px 80px"}}>
+      <div style={{maxWidth:1100,margin:"auto",padding:"24px 16px 100px"}}>
 
         {/* ── KPI Cards ── */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}}>
+        <div className="grid-4" style={{gap:12,marginBottom:20}}>
           {[
             {l:"Jumlah Listing",   v:myRecs.length,          c:user.color, isN:true, icon:"🏠"},
             {l:"Total Fee Lariz",  v:totalLariz,              c:"#34D399",  icon:"📥"},
@@ -1282,7 +2258,7 @@ function AgenDashboard({user, onLogout}) {
           <div style={{position:"absolute",right:-30,top:-30,width:160,height:160,borderRadius:"50%",background:`${user.color}06`,pointerEvents:"none"}}/>
           <div style={{position:"absolute",right:20,bottom:-40,width:100,height:100,borderRadius:"50%",background:`${user.color}04`,pointerEvents:"none"}}/>
 
-          <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:16}}>
+          <div className="saldo-card-inner">
             <div style={{flex:1,minWidth:200}}>
               <div style={{fontSize:11,color:"#475569",letterSpacing:".1em",textTransform:"uppercase",marginBottom:8}}>🏦 Saldo Tabungan BDB Saya</div>
               <div style={{fontFamily:"'DM Mono',monospace",fontSize:32,fontWeight:700,color:user.color,marginBottom:4,lineHeight:1}}>
@@ -1352,10 +2328,10 @@ function AgenDashboard({user, onLogout}) {
               <div style={{fontSize:11,color:"#334155"}}>{sorted.length} transaksi</div>
             </div>
             <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Cari dev / konsumen..."
-              style={{...S.inp,width:210,padding:"7px 12px",fontSize:12}}/>
+              style={{...S.inp,width:"100%",maxWidth:210,padding:"7px 12px",fontSize:12}}/>
           </div>
-          <div style={{overflowX:"auto"}}>
-            <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+          <div className="table-scroll">
+            <table style={{width:"100%",minWidth:520,borderCollapse:"collapse",fontSize:13}}>
               <thead>
                 <tr style={{background:"rgba(255,255,255,.03)"}}>
                   {[{l:"No",c:null},{l:"Dev / Listing",c:"namaDev"},{l:"Konsumen / Pemilik",c:"namaKonsumen"},
@@ -1424,14 +2400,51 @@ function AgenDashboard({user, onLogout}) {
       {showWaModal && (
         <WaRequestModal user={user} saldo={saldoTabungan} onClose={()=>setShowWaModal(false)}/>
       )}
+      {showChangePwd && <ChangePasswordModal user={user} onClose={()=>{setShowChangePwd(false);refreshPwdMap&&refreshPwdMap();}} />}
     </div>
   );
 }
 
 // ─── ROOT ─────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [user,setUser]=useState(null);
-  if(!user) return <Login onLogin={setUser}/>;
-  if(user.role==="admin") return <AdminDashboard user={user} onLogout={()=>setUser(null)}/>;
-  return <AgenDashboard user={user} onLogout={()=>setUser(null)}/>;
+  const [user,   setUser]    = useState(null);
+  const [pwdMap, setPwdMap]  = useState({});  // { username: md5hash }
+  const [pwdLoaded, setPwdLoaded] = useState(false);
+
+  // Load password hashes from GAS on mount
+  useEffect(() => {
+    fetch(`${GAS_URL}?action=getPasswords`)
+      .then(r => r.json())
+      .then(d => { if (d.passwords) setPwdMap(d.passwords); })
+      .catch(() => {}) // fallback ke DEFAULT_HASHES di verifyPassword
+      .finally(() => setPwdLoaded(true));
+  }, []);
+
+  // Override verifyPassword to use server hashes when available
+  const verifyPwd = (username, plaintext) => {
+    const hash = pwdMap[username] || getPasswordHash(username);
+    return md5(plaintext) === hash;
+  };
+
+  const handleLogin = (userObj) => setUser(userObj);
+  const handleLogout = () => setUser(null);
+
+  const refreshPwdMap = () => {
+    fetch(`${GAS_URL}?action=getPasswords`)
+      .then(r => r.json())
+      .then(d => { if (d.passwords) setPwdMap(d.passwords); })
+      .catch(() => {});
+  };
+
+  if (!pwdLoaded) return (
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",
+      background:"#05070E",color:"#334155",fontSize:13,gap:10}}>
+      <span style={{animation:"spin 1s linear infinite",display:"inline-block",fontSize:18}}>⟳</span>
+      Memuat sistem...
+    </div>
+  );
+
+  if (!user) return <Login onLogin={handleLogin} verifyPwd={verifyPwd}/>;
+  if (user.role==="admin") return <AdminDashboard user={user} onLogout={handleLogout} refreshPwdMap={refreshPwdMap}/>;
+  return <AgenDashboard user={user} onLogout={handleLogout} refreshPwdMap={refreshPwdMap}/>;
 }
