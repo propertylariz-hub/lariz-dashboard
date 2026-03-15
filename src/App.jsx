@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
-const GAS_URL = "https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbzs0Vx_Zu9UfTaTA_xTNsDCmJQVWDQRnYlQToIEv5vYQtIkK2ZJzdvQxTvhFKsxEr8WyQ/exec";
 
 // ─── MD5 ─────────────────────────────────────────────────────────────────────
 function md5(str) {
