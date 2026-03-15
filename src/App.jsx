@@ -1686,16 +1686,21 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
     try {
       const res  = await fetch(`${GAS_URL}?action=getAll`);
       const json = await res.json();
-      if(json.status==="ok") setData(json.records||[]);
-      else addToast("GAS error: "+json.message,"error");
+      if(json.status==="ok") {
+        console.log("[Lariz] Loaded", (json.records||[]).length, "records");
+        if(json.records&&json.records[0]) console.log("[Lariz] Sample record keys:", Object.keys(json.records[0]));
+        setData(json.records||[]);
+      } else {
+        setToasts(t=>[...t,{id:Date.now(),msg:"GAS: "+json.message,type:"error"}]);
+      }
     } catch(e) {
-      addToast("Gagal memuat data dari server.","error");
-      setData(DEMO_TRANS); // fallback ke demo hanya jika benar-benar tidak bisa konek
+      // Gagal konek — tidak fallback ke demo agar data asli tidak tertimpa
+      setToasts(t=>[...t,{id:Date.now(),msg:"Gagal memuat data. Cek koneksi.",type:"error"}]);
     }
     setLoading(false);
-  }, []);
+  }, [setData, setLoading, setToasts]);
 
-  useEffect(()=>{ fetchData(); },[]);
+  useEffect(()=>{ fetchData(); },[fetchData]);
   const [transferModal,setTransferModal]=useState(null); // agent obj — unified komisi+saving
   const [filterAgent,setFilterAgent]=useState("all");
 
@@ -2447,13 +2452,16 @@ function SaldoTable({ data, agentSaldo, filterAgent, onDelete, onEdit }) {
   const n = v => parseFloat(String(v).replace(/[^0-9.-]/g,""))||0; // safe parse from GAS string
 
   const rows = data.map(r => {
-    if(r.type==="fee") return {
-      id:r.id, tanggal:r.tanggal, desc:`${r.namaDev} / ${r.namaKonsumen}`, type:"fee",
-      in:n(r.feeLariz),
-      out:n(r.feeAgentBT),
-      net:n(r.netCommission),
-      color:"#34D399", badge:"FEE", raw:r,
-    };
+    if(r.type==="fee") {
+      const feeLariz   = n(r.feeLariz)||n(r.fee)||n(r.FEE_LARIZ)||0;
+      const feeAgentBT = n(r.feeAgentBT)||n(r.fee_agent_bt)||0;
+      const netComm    = n(r.netCommission)||n(r.net_commission)||(feeLariz-feeAgentBT)||0;
+      return {
+        id:r.id, tanggal:r.tanggal, desc:`${r.namaDev||r.nama_dev||""} / ${r.namaKonsumen||r.nama_konsumen||""}`,
+        type:"fee", in:feeLariz, out:feeAgentBT, net:netComm,
+        color:"#34D399", badge:"FEE", raw:r,
+      };
+    }
     if(r.type==="promo") return {
       id:r.id, tanggal:r.tanggal, desc:r.keterangan, type:"promo",
       in:0, out:n(r.jumlah), net:-n(r.jumlah), color:"#F87171", badge:"PROMO", raw:r,
@@ -2533,7 +2541,7 @@ function SaldoTable({ data, agentSaldo, filterAgent, onDelete, onEdit }) {
                     {allChecked?"✓":someChecked?"–":""}
                   </div>
                 </th>
-                {["Tanggal","Keterangan","Tipe","Pendapatan","Pengeluaran","Saldo","Aksi"].map(h=>(
+                {["Tanggal","Keterangan","Tipe","Fee Lariz","Co-Broke","Saldo","Aksi"].map(h=>(
                   <th key={h} style={{padding:"10px 10px",textAlign:"left",fontSize:10,fontWeight:700,
                     letterSpacing:".1em",color:"#334155",textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>
                 ))}
@@ -3042,7 +3050,6 @@ function WaRequestModal({user, saldo, onClose}) {
 }
 
 function AgenDashboard({user, onLogout, refreshPwdMap}) {
-  const [data,setData]=useState(DEMO_TRANS);
   const [data,setData]=useState([]);
   const [search,setSearch]=useState("");
   const [sortCol,setSortCol]=useState("tanggal");
@@ -3054,7 +3061,7 @@ function AgenDashboard({user, onLogout, refreshPwdMap}) {
     fetch(`${GAS_URL}?action=getAll`)
       .then(r=>r.json())
       .then(d=>{ if(d.status==="ok") setData(d.records||[]); })
-      .catch(()=>setData(DEMO_TRANS));
+      .catch(()=>{}); // jangan fallback ke demo — biarkan kosong
   },[]);
 
   const feeRecs=data.filter(r=>r.type==="fee");
