@@ -1684,18 +1684,28 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res  = await fetch(`${GAS_URL}?action=getAll`);
-      const json = await res.json();
+      // GAS GET request — no custom headers agar CORS tidak diblokir
+      const res  = await fetch(`${GAS_URL}?action=getAll`, {
+        method: "GET",
+        redirect: "follow",
+      });
+      const text = await res.text();
+      // GAS kadang return HTML saat belum login — deteksi dan handle
+      if (text.trim().startsWith("<")) {
+        setToasts(t=>[...t,{id:Date.now(),
+          msg:"GAS return HTML — pastikan Deploy: Access = Anyone (not signed in)",type:"error"}]);
+        setLoading(false); return;
+      }
+      const json = JSON.parse(text);
       if(json.status==="ok") {
-        console.log("[Lariz] Loaded", (json.records||[]).length, "records");
-        if(json.records&&json.records[0]) console.log("[Lariz] Sample record keys:", Object.keys(json.records[0]));
+        console.log("[Lariz] Loaded", (json.records||[]).length, "records from GAS");
         setData(json.records||[]);
       } else {
-        setToasts(t=>[...t,{id:Date.now(),msg:"GAS: "+json.message,type:"error"}]);
+        setToasts(t=>[...t,{id:Date.now(),msg:"GAS error: "+json.message,type:"error"}]);
       }
     } catch(e) {
-      // Gagal konek — tidak fallback ke demo agar data asli tidak tertimpa
-      setToasts(t=>[...t,{id:Date.now(),msg:"Gagal memuat data. Cek koneksi.",type:"error"}]);
+      console.error("[Lariz] fetchData error:", e);
+      setToasts(t=>[...t,{id:Date.now(),msg:"Gagal memuat data: "+e.message,type:"error"}]);
     }
     setLoading(false);
   }, [setData, setLoading, setToasts]);
@@ -1773,7 +1783,7 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
     const newRec={id:"t"+Date.now(),type:"fee",tanggal:feeForm.tanggal,namaDev:feeForm.namaDev,
       namaKonsumen:feeForm.namaKonsumen,...feeCalc,keterangan:feeForm.keterangan};
     try {
-      await fetch(GAS_URL,{method:"POST",body:JSON.stringify({action:"addFee",...newRec})});
+      await fetch(GAS_URL,{method:"POST",redirect:"follow",body:JSON.stringify({action:"addFee",...newRec})});
     } catch{}
     setData(d=>[newRec,...d]);
     setFeeForm({namaDev:"",namaKonsumen:"",tanggal:new Date().toISOString().split("T")[0],feeLariz:"",promo:"",feeAgentBT:"",keterangan:""});
@@ -1792,7 +1802,7 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
       keterangan:promoForm.keterangan,jumlah:parseMoney(promoForm.jumlah),
       buktiName:promoBukti?promoBukti.name:"", buktiUrl};
     try {
-      await fetch(GAS_URL,{method:"POST",body:JSON.stringify({action:"addPromo",...newRec})});
+      await fetch(GAS_URL,{method:"POST",redirect:"follow",body:JSON.stringify({action:"addPromo",...newRec})});
     } catch{}
     setData(d=>[newRec,...d]);
     setPromoForm({tanggal:new Date().toISOString().split("T")[0],keterangan:"",jumlah:""});
@@ -1805,7 +1815,7 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
   const handleWithdraw=async({agent,jumlah,keterangan,buktiName=""})=>{
     const newRec={id:"w"+Date.now(),type:"withdraw",tanggal:new Date().toISOString().split("T")[0],agent,jumlah,keterangan,buktiName:buktiName||""};
     try {
-      await fetch(GAS_URL,{method:"POST",body:JSON.stringify({action:"addWithdraw",...newRec})});
+      await fetch(GAS_URL,{method:"POST",redirect:"follow",body:JSON.stringify({action:"addWithdraw",...newRec})});
     } catch{}
     setData(d=>[newRec,...d]);
     addToast(`Tarik tabungan ${agent} berhasil dicatat!`);
@@ -1825,7 +1835,7 @@ function AdminDashboard({user, onLogout, refreshPwdMap}) {
   const handleTransferKomisi=async({agent,jumlah,keterangan,buktiName="",buktiFile=null})=>{
     const buktiUrl = buktiFile ? await uploadBuktiToGAS(buktiFile) : "";
     const newRec={id:"k"+Date.now(),type:"komisi",tanggal:new Date().toISOString().split("T")[0],agent,jumlah,keterangan,buktiName,buktiUrl};
-    try{ await fetch(GAS_URL,{method:"POST",body:JSON.stringify({action:"addKomisi",...newRec})}); }catch{}
+    try{ await fetch(GAS_URL,{method:"POST",redirect:"follow",body:JSON.stringify({action:"addKomisi",...newRec})}); }catch{}
     setData(d=>[newRec,...d]);
     addToast(`Transfer komisi ${agent} berhasil dicatat!`);
   };
