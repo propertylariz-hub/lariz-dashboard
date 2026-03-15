@@ -1675,10 +1675,15 @@ export default function App() {
       .finally(()=>setPwdLoaded(true));
   },[]);
 
-  const verifyPwd=(username,plaintext)=>{
-    const hash=pwdMap[username]||getPasswordHash(username);
-    return md5(plaintext)===hash;
-  };
+ const verifyPwd=(username,plaintext)=>{
+  const hash=pwdMap[username]||getPasswordHash(username);
+  const inputHash=md5(plaintext);
+  console.log("username:", username);
+  console.log("input hash:", inputHash);
+  console.log("stored hash:", hash);
+  console.log("match:", inputHash===hash);
+  return inputHash===hash;
+};
 
   const refreshPwdMap=()=>{
     gasGet({action:"getPasswords"})
