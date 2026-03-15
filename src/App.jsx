@@ -1,18 +1,34 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
-const GAS_URL = "https://script.google.com/macros/s/AKfycbynanTa7W7Fo0YA-ld7wC-IYHR1QLCyJ4TnQeJRhHhZ7RtVGGMwG5wTlF6GZYyMFDGnEg/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbzcLxAEW6e5rD2hA3V5NgNfPeG1QleutnF7z39cwEO1TEK4Bu_89TW4XYHISsmVG9xKUA/exec";
 
 // ─── GAS FETCH HELPERS ────────────────────────────────────────────────────────
-// GET via JSONP — bypass CORS redirect issue pada GAS
-function gasGet(params) {
+const GAS_URL_BASE = GAS_URL;
+
+// GET: coba fetch dulu, fallback ke JSONP jika CORS error
+async function gasGet(params) {
+  const qs  = Object.keys(params).map(k => k+"="+encodeURIComponent(params[k])).join("&");
+  const url = GAS_URL_BASE + "?" + qs;
+
+  // Coba fetch biasa dulu
+  try {
+    const res  = await fetch(url, { method:"GET", redirect:"follow" });
+    const text = await res.text();
+    if (!text.trim().startsWith("<")) {
+      return JSON.parse(text);
+    }
+  } catch(e) {
+    console.log("[Lariz] fetch GET failed, trying JSONP:", e.message);
+  }
+
+  // Fallback: JSONP
   return new Promise((resolve, reject) => {
     const cbName = "__gasCallback_" + Date.now();
-    const url    = GAS_URL + "?" + Object.keys(params).map(k => k+"="+encodeURIComponent(params[k])).join("&") + "&callback=" + cbName;
+    const jsUrl  = url + "&callback=" + cbName;
     const script = document.createElement("script");
     const timer  = setTimeout(() => {
-      cleanup();
-      reject(new Error("GAS timeout"));
+      cleanup(); reject(new Error("JSONP timeout — cek deployment GAS"));
     }, 15000);
     function cleanup() {
       clearTimeout(timer);
@@ -20,20 +36,19 @@ function gasGet(params) {
       if (script.parentNode) script.parentNode.removeChild(script);
     }
     window[cbName] = (data) => { cleanup(); resolve(data); };
-    script.src = url;
-    script.onerror = () => { cleanup(); reject(new Error("Script load error")); };
+    script.onerror = () => { cleanup(); reject(new Error("JSONP script error")); };
+    script.src = jsUrl;
     document.head.appendChild(script);
   });
 }
 
-// POST via fetch — GAS POST tidak kena CORS issue
+// POST via fetch — tidak kena CORS issue
 async function gasPost(body) {
-  const res = await fetch(GAS_URL, {
-    method: "POST",
-    redirect: "follow",
-    body: JSON.stringify(body),
+  const res  = await fetch(GAS_URL_BASE, {
+    method:"POST", redirect:"follow", body:JSON.stringify(body),
   });
   const text = await res.text();
+  if (text.trim().startsWith("<")) throw new Error("GAS POST returned HTML");
   return JSON.parse(text);
 }
 
