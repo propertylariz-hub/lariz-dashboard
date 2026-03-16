@@ -1790,3 +1790,4 @@ const verifyPwd=(username,plaintext)=>{
   const stored=pwdMap[username]||CORRECT_HASHES[username]||"";
   return md5(plaintext)===stored;
 };
+}
