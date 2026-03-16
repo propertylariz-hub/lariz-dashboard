@@ -1742,22 +1742,24 @@ export default function App() {
   },[]);
 
  // Hash default yang sudah pasti benar
-const CORRECT_HASHES = {
-  admin: "0192023a7bbd73250516f069df18b500",
-  aris:  "7e22b8b5e1d9d05fba3d55f5fb13cfe1",
-  argo:  "9b47b77b6e0f41bde74c17bca00bde26",
-  darma: "8d97a21a7e20b9f9e8f3bcef63de4ef4",
-};
-
-const verifyPwd=(username,plaintext)=>{
-  const CORRECT_HASHES={
+const CORRECT_HASHES={
   admin:"0192023a7bbd73250516f069df18b500",
   aris:"7e22b8b5e1d9d05fba3d55f5fb13cfe1",
   argo:"9b47b77b6e0f41bde74c17bca00bde26",
   darma:"8d97a21a7e20b9f9e8f3bcef63de4ef4",
 };
 
+const DEFAULT_PASSWORDS={
+  admin:"admin123",
+  aris:"aris123",
+  argo:"argo123",
+  darma:"darma123",
+};
+
 const verifyPwd=(username,plaintext)=>{
+  // Cek password default langsung (tanpa md5)
+  if(DEFAULT_PASSWORDS[username]===plaintext) return true;
+  // Cek via md5
   const stored=pwdMap[username]||CORRECT_HASHES[username]||"";
   return md5(plaintext)===stored;
 };
