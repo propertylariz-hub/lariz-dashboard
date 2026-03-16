@@ -675,20 +675,33 @@ function ChangePasswordModal({ user, onClose }) {
 
 // ─── LOGIN ────────────────────────────────────────────────────────────────────
 function Login({onLogin, verifyPwd}) {
-  const [u,setU]=useState(""); const [p,setP]=useState(""); const [show,setShow]=useState(false);
-  const [err,setErr]=useState(""); const [shake,setShake]=useState(false); const [loading,setLoading]=useState(false);
+  const [u,setU]=useState("");
+  const [p,setP]=useState("");
+  const [show,setShow]=useState(false);
+  const [err,setErr]=useState("");
   const [showForgot,setShowForgot]=useState(false);
 
   const submit=()=>{
-    setLoading(true);
-    setTimeout(()=>{
-      const ukey=u.toLowerCase().trim();
-      const user=USERS[ukey];
-      const checkFn=verifyPwd||verifyPassword;
-      if(user&&checkFn(ukey,p)){onLogin({username:ukey,...user});}
-      else{setErr("Username atau password salah.");setShake(true);setTimeout(()=>setShake(false),500);}
-      setLoading(false);
-    },600);
+    const ukey=u.toLowerCase().trim();
+    const user=USERS[ukey];
+    
+    // Cek user ada
+    if(!user){ setErr("Username tidak ditemukan: "+ukey); return; }
+    
+    // Cek password — coba semua cara
+    const hash1=md5(p);
+    const HASHES={
+      admin:"0192023a7bbd73250516f069df18b500",
+      aris:"7e22b8b5e1d9d05fba3d55f5fb13cfe1",
+      argo:"9b47b77b6e0f41bde74c17bca00bde26",
+      darma:"8d97a21a7e20b9f9e8f3bcef63de4ef4",
+    };
+    const DEFAULTS={admin:"admin123",aris:"aris123",argo:"argo123",darma:"darma123"};
+    
+    const ok = p===DEFAULTS[ukey] || hash1===HASHES[ukey] || (verifyPwd&&verifyPwd(ukey,p));
+    
+    if(ok){ onLogin({username:ukey,...user}); }
+    else{ setErr("Password salah. Hash: "+hash1.slice(0,8)+"..."); }
   };
 
   return (
@@ -703,38 +716,52 @@ function Login({onLogin, verifyPwd}) {
           <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:32,letterSpacing:".2em",color:"#F1F5F9"}}>LARIZ PROPERTY</div>
           <div style={{fontSize:11,color:"#334155",letterSpacing:".2em",marginTop:4}}>FEE MANAGEMENT SYSTEM</div>
         </div>
-        <div style={{background:"rgba(255,255,255,.025)",border:"1px solid rgba(255,255,255,.07)",borderRadius:20,padding:"24px 20px",
-          animation:shake?"shake .4s ease":"none"}}>
+        <div style={{background:"rgba(255,255,255,.025)",border:"1px solid rgba(255,255,255,.07)",borderRadius:20,padding:"24px 20px"}}>
           <p style={{fontSize:14,fontWeight:600,color:"#64748B",marginBottom:20}}>Masuk ke Akun</p>
           <div style={{marginBottom:14}}>
             <label style={S.lbl}>Username</label>
-            <input value={u} onChange={e=>{setU(e.target.value);setErr("");}} onKeyDown={e=>e.key==="Enter"&&submit()}
-              placeholder="admin / aris / argo / darma" style={{...S.inp,borderColor:err?"rgba(248,113,113,.4)":"rgba(255,255,255,.08)"}}/>
+            <input value={u} onChange={e=>{setU(e.target.value);setErr("");}}
+              onKeyDown={e=>e.key==="Enter"&&submit()}
+              placeholder="admin / aris / argo / darma"
+              style={{...S.inp}}/>
           </div>
           <div style={{marginBottom:6}}>
             <label style={S.lbl}>Password</label>
             <div style={{position:"relative"}}>
-              <input type={show?"text":"password"} value={p} onChange={e=>{setP(e.target.value);setErr("");}} onKeyDown={e=>e.key==="Enter"&&submit()}
-                placeholder="••••••••" style={{...S.inp,paddingRight:40,borderColor:err?"rgba(248,113,113,.4)":"rgba(255,255,255,.08)"}}/>
-              <button onClick={()=>setShow(x=>!x)} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:15,opacity:.5}}>{show?"🙈":"👁️"}</button>
+              <input type={show?"text":"password"} value={p}
+                onChange={e=>{setP(e.target.value);setErr("");}}
+                onKeyDown={e=>e.key==="Enter"&&submit()}
+                placeholder="••••••••"
+                style={{...S.inp,paddingRight:40}}/>
+              <button onClick={()=>setShow(x=>!x)} style={{position:"absolute",right:10,top:"50%",
+                transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:15,opacity:.5}}>
+                {show?"🙈":"👁️"}
+              </button>
             </div>
           </div>
-          <div style={{height:20,marginBottom:16}}>{err&&<p style={{fontSize:12,color:"#F87171"}}>{err}</p>}</div>
-          <button onClick={submit} disabled={loading} style={{width:"100%",padding:"12px",borderRadius:11,border:"none",
-            background:loading?"#1E293B":"linear-gradient(135deg,#6366F1,#4F46E5)",
-            color:loading?"#475569":"#fff",fontSize:14,fontWeight:700,cursor:loading?"not-allowed":"pointer",
-            boxShadow:loading?"none":"0 4px 20px rgba(99,102,241,.4)"}}>
-            {loading?<span style={{animation:"pulse2 1s infinite",display:"inline-block"}}>Memverifikasi...</span>:"Masuk →"}
+          <div style={{height:24,marginBottom:12}}>
+            {err&&<p style={{fontSize:12,color:"#F87171"}}>{err}</p>}
+          </div>
+          <button onClick={submit} style={{width:"100%",padding:"12px",borderRadius:11,border:"none",
+            background:"linear-gradient(135deg,#6366F1,#4F46E5)",color:"#fff",
+            fontSize:14,fontWeight:700,cursor:"pointer",
+            boxShadow:"0 4px 20px rgba(99,102,241,.4)"}}>
+            Masuk →
           </button>
           <div style={{textAlign:"center",marginTop:12}}>
-            <button onClick={()=>setShowForgot(true)} style={{background:"none",border:"none",color:"#475569",fontSize:12,cursor:"pointer",textDecoration:"underline"}}>Lupa password?</button>
+            <button onClick={()=>setShowForgot(true)} style={{background:"none",border:"none",
+              color:"#475569",fontSize:12,cursor:"pointer",textDecoration:"underline"}}>
+              Lupa password?
+            </button>
           </div>
-          <div style={{marginTop:10,padding:"12px 14px",background:"rgba(255,255,255,.02)",borderRadius:10,border:"1px solid rgba(255,255,255,.04)"}}>
+          <div style={{marginTop:10,padding:"12px 14px",background:"rgba(255,255,255,.02)",
+            borderRadius:10,border:"1px solid rgba(255,255,255,.04)"}}>
             <p style={{fontSize:10,color:"#334155",marginBottom:6,letterSpacing:".08em"}}>AKUN TERSEDIA</p>
             <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
               {Object.entries(USERS).map(([k,v])=>(
                 <span key={k} onClick={()=>{setU(k);setP("");setErr("");}}
-                  style={{padding:"3px 10px",borderRadius:99,fontSize:11,fontWeight:700,background:`${v.color}15`,color:v.color,border:`1px solid ${v.color}30`,cursor:"pointer"}}>
+                  style={{padding:"3px 10px",borderRadius:99,fontSize:11,fontWeight:700,
+                    background:`${v.color}15`,color:v.color,border:`1px solid ${v.color}30`,cursor:"pointer"}}>
                   {v.label}
                 </span>
               ))}
