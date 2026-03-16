@@ -6,13 +6,49 @@ const GAS_URL_BASE = GAS_URL;
 async function gasGet(params) {
   const qs  = Object.keys(params).map(k => k + "=" + encodeURIComponent(params[k])).join("&");
   const url = GAS_URL_BASE + "?" + qs;
+
+  // Coba 1: fetch dengan mode cors
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      redirect: "follow",
+      headers: { "Accept": "application/json" },
+    });
+    const text = await res.text();
+    if (text && text.trim().startsWith("{")) {
+      return JSON.parse(text);
+    }
+  } catch(e) {
+    console.log("[Lariz] fetch cors failed:", e.message);
+  }
+
+  // Coba 2: fetch no-cors via proxy
+  try {
+    const proxyUrl = "https://corsproxy.io/?" + encodeURIComponent(url);
+    const res  = await fetch(proxyUrl);
+    const text = await res.text();
+    if (text && text.trim().startsWith("{")) {
+      return JSON.parse(text);
+    }
+  } catch(e) {
+    console.log("[Lariz] proxy failed:", e.message);
+  }
+
+  // Coba 3: JSONP
   return new Promise((resolve, reject) => {
     const cbName = "__gas_" + Date.now() + "_" + Math.random().toString(36).slice(2);
     const script = document.createElement("script");
-    const timer  = setTimeout(() => { cleanup(); reject(new Error("JSONP timeout")); }, 30000);
-    function cleanup() { clearTimeout(timer); delete window[cbName]; if (script.parentNode) script.parentNode.removeChild(script); }
+    const timer  = setTimeout(() => {
+      cleanup();
+      reject(new Error("Gagal terhubung ke server"));
+    }, 30000);
+    function cleanup() {
+      clearTimeout(timer);
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
     window[cbName] = (data) => { cleanup(); resolve(data); };
-    script.onerror = () => { cleanup(); reject(new Error("JSONP error")); };
+    script.onerror = () => { cleanup(); reject(new Error("Gagal terhubung ke server")); };
     script.src = url + "&callback=" + cbName;
     script.async = true;
     document.head.appendChild(script);
