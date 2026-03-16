@@ -110,10 +110,10 @@ function verifyPassword(username, plaintext) {
 }
 
 const USERS = {
-  admin: { role:"admin", label:"Admin",  color:"#6366F1", avatar:"AD" },
-  aris:  { role:"agen",  label:"Aris",   color:"#22D3EE", avatar:"AR", feeField:"aris",  savingField:"savingAris"  },
-  argo:  { role:"agen",  label:"Argo",   color:"#F59E0B", avatar:"AG", feeField:"argo",  savingField:"savingArgo"  },
-  darma: { role:"agen",  label:"Darma",  color:"#A78BFA", avatar:"DA", feeField:"darma", savingField:"savingDarma" },
+  admin: { role:"admin",      label:"Admin",  color:"#6366F1", avatar:"AD" },
+  aris:  { role:"agen-admin", label:"Aris",   color:"#22D3EE", avatar:"AR", feeField:"aris",  savingField:"savingAris"  },
+  argo:  { role:"agen",       label:"Argo",   color:"#F59E0B", avatar:"AG", feeField:"argo",  savingField:"savingArgo"  },
+  darma: { role:"agen",       label:"Darma",  color:"#A78BFA", avatar:"DA", feeField:"darma", savingField:"savingDarma" },
 };
 
 const AGENTS = [
@@ -875,7 +875,56 @@ function AgenDashboard({user,onLogout,refreshPwdMap}) {
     </div>
   );
 }
+function AgenAdminDashboard({user, onLogout, refreshPwdMap}) {
+  const [activeView, setActiveView] = useState("agen"); // "agen" | "admin"
 
+  return (
+    <div>
+      {/* Toggle bar */}
+      <div style={{
+        position:"fixed", top:0, left:0, right:0, zIndex:999,
+        background:"rgba(5,7,14,.95)", backdropFilter:"blur(20px)",
+        borderBottom:"1px solid rgba(255,255,255,.08)",
+        display:"flex", alignItems:"center", justifyContent:"space-between",
+        padding:"8px 16px", height:46,
+      }}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <div style={{width:28,height:28,borderRadius:8,background:`${user.color}18`,border:`1px solid ${user.color}35`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Bebas Neue',sans-serif",fontSize:12,color:user.color}}>{user.avatar}</div>
+          <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:14,letterSpacing:".1em",color:"#E2E8F0"}}>{user.label}</span>
+          <span style={{padding:"2px 8px",borderRadius:99,fontSize:10,fontWeight:700,background:"rgba(99,102,241,.15)",color:"#818CF8",border:"1px solid rgba(99,102,241,.3)"}}>AGEN + ADMIN</span>
+        </div>
+        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+          {/* Toggle button */}
+          <div style={{display:"flex",background:"rgba(255,255,255,.05)",borderRadius:10,padding:3,gap:3}}>
+            <button onClick={()=>setActiveView("agen")}
+              style={{padding:"5px 14px",borderRadius:8,border:"none",fontSize:11,fontWeight:700,cursor:"pointer",transition:"all .15s",
+                background:activeView==="agen"?`${user.color}25`:"transparent",
+                color:activeView==="agen"?user.color:"#475569"}}>
+              👤 Dashboard Saya
+            </button>
+            <button onClick={()=>setActiveView("admin")}
+              style={{padding:"5px 14px",borderRadius:8,border:"none",fontSize:11,fontWeight:700,cursor:"pointer",transition:"all .15s",
+                background:activeView==="admin"?"rgba(99,102,241,.25)":"transparent",
+                color:activeView==="admin"?"#818CF8":"#475569"}}>
+              ⚙️ Panel Admin
+            </button>
+          </div>
+          <button onClick={onLogout} style={{padding:"5px 12px",borderRadius:8,border:"1px solid rgba(248,113,113,.2)",background:"rgba(248,113,113,.06)",color:"#F87171",fontSize:11,fontWeight:600,cursor:"pointer"}}>⏏ Keluar</button>
+        </div>
+      </div>
+
+      {/* Content — tambah padding top karena ada toggle bar */}
+      <div style={{paddingTop:46}}>
+        {activeView==="agen" && (
+          <AgenDashboard user={user} onLogout={onLogout} refreshPwdMap={refreshPwdMap}/>
+        )}
+        {activeView==="admin" && (
+          <AdminDashboard user={user} onLogout={onLogout} refreshPwdMap={refreshPwdMap}/>
+        )}
+      </div>
+    </div>
+  );
+}
 export default function App() {
   const [user,setUser]=useState(null);
   const [pwdMap,setPwdMap]=useState({});
@@ -908,6 +957,7 @@ export default function App() {
   );
 
   if(!user) return <Login onLogin={u=>setUser(u)} verifyPwd={verifyPwd}/>;
-  if(user.role==="admin") return <AdminDashboard user={user} onLogout={()=>setUser(null)} refreshPwdMap={refreshPwdMap}/>;
-  return <AgenDashboard user={user} onLogout={()=>setUser(null)} refreshPwdMap={refreshPwdMap}/>;
+if(user.role==="admin") return <AdminDashboard user={user} onLogout={()=>setUser(null)} refreshPwdMap={refreshPwdMap}/>;
+if(user.role==="agen-admin") return <AgenAdminDashboard user={user} onLogout={()=>setUser(null)} refreshPwdMap={refreshPwdMap}/>;
+return <AgenDashboard user={user} onLogout={()=>setUser(null)} refreshPwdMap={refreshPwdMap}/>;
 }
