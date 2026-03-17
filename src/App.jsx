@@ -268,25 +268,96 @@ function Modal({title,onClose,children,width=480}) {
   );
 }
 
-function ImageViewerModal({url,name,onClose}) {
-  const isPdf=name&&name.toLowerCase().endsWith(".pdf");
+function ImageViewerModal({url, name, onClose}) {
+  const isPdf = name && name.toLowerCase().endsWith(".pdf");
+  const isImg = /\.(jpg|jpeg|png|gif|webp)$/i.test(name||"");
+
+  // Convert URL ke format yang bisa ditampilkan
+  const getViewUrl = (url) => {
+    if (!url) return "";
+    const id = url.match(/[?&]id=([^&]+)/)?.[1]
+             || url.match(/\/d\/([^/?]+)/)?.[1];
+    if (id) {
+      if (isPdf) return `https://drive.google.com/file/d/${id}/preview`;
+      return `https://drive.google.com/file/d/${id}/preview`;
+    }
+    return url;
+  };
+
+  const viewUrl = getViewUrl(url);
+
   return(
-    <div style={{position:"fixed",inset:0,zIndex:99999,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,.85)",backdropFilter:"blur(12px)",animation:"fadeIn .2s ease",padding:16}} onClick={onClose}>
-      <div style={{position:"relative",maxWidth:"90vw",maxHeight:"90vh",animation:"fadeUp .25s ease"}} onClick={e=>e.stopPropagation()}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,padding:"0 4px"}}>
-          <span style={{fontSize:13,color:"#94A3B8",fontWeight:500,maxWidth:300,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>📎 {name||"Bukti Transfer"}</span>
+    <div style={{
+      position:"fixed", inset:0, zIndex:99999,
+      display:"flex", alignItems:"center", justifyContent:"center",
+      background:"rgba(0,0,0,.9)", backdropFilter:"blur(12px)",
+      animation:"fadeIn .2s ease", padding:16
+    }} onClick={onClose}>
+      <div style={{
+        position:"relative", width:"90vw", maxWidth:800,
+        maxHeight:"90vh", animation:"fadeUp .25s ease",
+        display:"flex", flexDirection:"column", gap:10
+      }} onClick={e=>e.stopPropagation()}>
+
+        {/* Header */}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span style={{fontSize:13,color:"#94A3B8",fontWeight:500,
+            maxWidth:300,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+            📎 {name||"Bukti Transfer"}
+          </span>
           <div style={{display:"flex",gap:8}}>
-            <a href={url} target="_blank" rel="noreferrer" style={{padding:"5px 12px",borderRadius:7,border:"1px solid rgba(99,102,241,.3)",background:"rgba(99,102,241,.1)",color:"#818CF8",fontSize:12,fontWeight:600,textDecoration:"none"}}>↗ Buka Tab Baru</a>
-            <button onClick={onClose} style={{width:30,height:30,borderRadius:8,border:"1px solid rgba(255,255,255,.15)",background:"rgba(255,255,255,.06)",color:"#94A3B8",cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+            <a href={url} target="_blank" rel="noreferrer"
+              style={{padding:"5px 12px",borderRadius:7,
+                border:"1px solid rgba(99,102,241,.3)",
+                background:"rgba(99,102,241,.1)",color:"#818CF8",
+                fontSize:12,fontWeight:600,textDecoration:"none"}}>
+              ↗ Buka Tab Baru
+            </a>
+            <button onClick={onClose}
+              style={{width:30,height:30,borderRadius:8,
+                border:"1px solid rgba(255,255,255,.15)",
+                background:"rgba(255,255,255,.06)",color:"#94A3B8",
+                cursor:"pointer",fontSize:16,display:"flex",
+                alignItems:"center",justifyContent:"center"}}>×</button>
           </div>
         </div>
-        {isPdf?(<div style={{background:"#0D1117",borderRadius:12,padding:32,textAlign:"center",border:"1px solid rgba(255,255,255,.08)",minWidth:280}}><div style={{fontSize:64,marginBottom:16}}>📄</div><a href={url} target="_blank" rel="noreferrer" style={{display:"inline-block",padding:"10px 20px",borderRadius:9,background:"linear-gradient(135deg,#6366F1,#4F46E5)",color:"#fff",fontSize:13,fontWeight:700,textDecoration:"none"}}>Buka PDF →</a></div>)
-        :(<img src={url} alt={name||"bukti"} style={{maxWidth:"85vw",maxHeight:"80vh",borderRadius:12,objectFit:"contain",boxShadow:"0 24px 80px rgba(0,0,0,.6)",display:"block"}}/>)}
+
+        {/* Content — pakai iframe untuk Google Drive */}
+        <div style={{
+          width:"100%", height:"75vh",
+          borderRadius:12, overflow:"hidden",
+          border:"1px solid rgba(255,255,255,.1)",
+          background:"#0D1117",
+        }}>
+          {viewUrl ? (
+            <iframe
+              src={viewUrl}
+              style={{width:"100%",height:"100%",border:"none"}}
+              allow="autoplay"
+              title={name||"bukti"}
+            />
+          ) : (
+            <div style={{display:"flex",alignItems:"center",justifyContent:"center",
+              height:"100%",flexDirection:"column",gap:12}}>
+              <div style={{fontSize:48}}>📎</div>
+              <p style={{fontSize:14,color:"#64748B"}}>Tidak bisa preview</p>
+              <a href={url} target="_blank" rel="noreferrer"
+                style={{padding:"10px 20px",borderRadius:9,
+                  background:"linear-gradient(135deg,#6366F1,#4F46E5)",
+                  color:"#fff",fontSize:13,fontWeight:700,textDecoration:"none"}}>
+                Buka di Tab Baru →
+              </a>
+            </div>
+          )}
+        </div>
+
+        <p style={{textAlign:"center",fontSize:11,color:"#334155"}}>
+          Klik di luar untuk menutup
+        </p>
       </div>
     </div>
   );
 }
-
 function BuktiThumb({buktiName, buktiUrl, color="#6366F1"}) {
   const [show, setShow] = useState(false);
   const [imgSrc, setImgSrc] = useState(null);
