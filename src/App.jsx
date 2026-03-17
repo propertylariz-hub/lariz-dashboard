@@ -287,11 +287,101 @@ function ImageViewerModal({url,name,onClose}) {
   );
 }
 
-function BuktiThumb({buktiName,buktiUrl,color="#6366F1"}) {
-  const [show,setShow]=useState(false);
-  if(!buktiName) return(<div style={{background:"rgba(255,255,255,.02)",border:"1px dashed rgba(255,255,255,.08)",borderRadius:10,padding:"10px 14px",minWidth:140,textAlign:"center"}}><div style={{fontSize:9,color:"#334155",letterSpacing:".07em",textTransform:"uppercase",marginBottom:6}}>Bukti</div><div style={{fontSize:22,marginBottom:4,opacity:.3}}>📎</div><div style={{fontSize:11,color:"#334155"}}>Tidak ada bukti</div></div>);
-  const isImg=/\.(jpg|jpeg|png|gif|webp)$/i.test(buktiName);
-  return(<>{<div onClick={buktiUrl?()=>setShow(true):undefined} style={{background:`${color}08`,border:`1px solid ${color}25`,borderRadius:10,padding:"10px 14px",minWidth:160,textAlign:"center",cursor:buktiUrl?"pointer":"default"}}><div style={{fontSize:9,color:"#475569",letterSpacing:".07em",textTransform:"uppercase",marginBottom:6}}>Bukti Transfer</div>{buktiUrl&&isImg?<img src={buktiUrl} alt="bukti" style={{width:"100%",maxHeight:80,objectFit:"cover",borderRadius:6,marginBottom:6}}/>:<div style={{fontSize:28,marginBottom:6}}>{isImg?"🖼️":"📄"}</div>}<div style={{fontSize:11,color,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:140}}>{buktiName}</div>{buktiUrl&&<div style={{fontSize:10,color:"#475569",marginTop:4}}>🔍 Klik untuk lihat</div>}</div>}{show&&<ImageViewerModal url={buktiUrl} name={buktiName} onClose={()=>setShow(false)}/>}</>);
+function BuktiThumb({buktiName, buktiUrl, color="#6366F1"}) {
+  const [show, setShow] = useState(false);
+  const [imgSrc, setImgSrc] = useState(null);
+
+  // Convert URL ke format yang bisa ditampilkan sebagai thumbnail
+  useEffect(()=>{
+    if(!buktiUrl) return;
+    const id = buktiUrl.match(/[?&]id=([^&]+)/)?.[1]
+            || buktiUrl.match(/\/d\/([^/?]+)/)?.[1]
+            || buktiUrl.match(/\/d\/([^/]+)/)?.[1];
+    if(id) {
+      setImgSrc("https://drive.google.com/thumbnail?id="+id+"&sz=w400");
+    } else {
+      setImgSrc(buktiUrl);
+    }
+  },[buktiUrl]);
+
+  if (!buktiName) return (
+    <div style={{background:"rgba(255,255,255,.02)",border:"1px dashed rgba(255,255,255,.08)",
+      borderRadius:10,padding:"10px 14px",minWidth:140,textAlign:"center"}}>
+      <div style={{fontSize:9,color:"#334155",letterSpacing:".07em",textTransform:"uppercase",marginBottom:6}}>Bukti</div>
+      <div style={{fontSize:22,marginBottom:4,opacity:.3}}>📎</div>
+      <div style={{fontSize:11,color:"#334155"}}>Tidak ada bukti</div>
+    </div>
+  );
+
+  const isImg  = /\.(jpg|jpeg|png|gif|webp)$/i.test(buktiName);
+  const isPdf  = /\.pdf$/i.test(buktiName);
+  const hasUrl = !!buktiUrl && buktiUrl.startsWith("http");
+
+  return (
+    <>
+      <div
+        onClick={hasUrl ? ()=>setShow(true) : undefined}
+        style={{
+          background:`${color}08`, border:`1px solid ${color}25`,
+          borderRadius:10, padding:"10px 14px", minWidth:160, textAlign:"center",
+          cursor: hasUrl ? "pointer" : "default", transition:"all .15s",
+        }}
+        onMouseEnter={e=>{ if(hasUrl) e.currentTarget.style.background=`${color}18`; }}
+        onMouseLeave={e=>{ e.currentTarget.style.background=`${color}08`; }}
+      >
+        <div style={{fontSize:9,color:"#475569",letterSpacing:".07em",
+          textTransform:"uppercase",marginBottom:6}}>Bukti Transfer</div>
+
+        {/* Thumbnail */}
+        {hasUrl && isImg && imgSrc ? (
+          <img
+            src={imgSrc}
+            alt="bukti"
+            style={{width:"100%",maxHeight:90,objectFit:"cover",borderRadius:6,
+              marginBottom:6,border:`1px solid ${color}30`,display:"block"}}
+            onError={e=>{
+              // Coba format lain jika gagal
+              if(imgSrc.includes("thumbnail")) {
+                const id=imgSrc.match(/id=([^&]+)/)?.[1];
+                if(id) setImgSrc("https://lh3.googleusercontent.com/d/"+id);
+              } else {
+                e.target.style.display="none";
+              }
+            }}
+          />
+        ) : (
+          <div style={{fontSize:32,marginBottom:6}}>
+            {isPdf ? "📄" : isImg ? "🖼️" : "📎"}
+          </div>
+        )}
+
+        {/* Nama file */}
+        <div style={{fontSize:11,color,fontWeight:600,overflow:"hidden",
+          textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:140,marginBottom:4}}>
+          {buktiName}
+        </div>
+
+        {/* Status */}
+        {hasUrl ? (
+          <div style={{fontSize:10,color:"#475569",display:"flex",
+            alignItems:"center",justifyContent:"center",gap:4}}>
+            🔍 Klik untuk lihat
+          </div>
+        ) : (
+          <div style={{fontSize:10,color:"#F87171"}}>⚠ URL tidak tersedia</div>
+        )}
+      </div>
+
+      {/* Popup viewer */}
+      {show && (
+        <ImageViewerModal
+          url={buktiUrl}
+          name={buktiName}
+          onClose={()=>setShow(false)}
+        />
+      )}
+    </>
+  );
 }
 
 function ChangePasswordModal({user,onClose}) {
