@@ -373,13 +373,14 @@ function BuktiThumb({buktiName, buktiUrl, color="#6366F1"}) {
       </div>
 
       {/* Popup viewer */}
-      {show && (
-        <ImageViewerModal
-          url={buktiUrl}
-          name={buktiName}
-          onClose={()=>setShow(false)}
-        />
-      )}
+      {show && ReactDOM.createPortal(
+  <ImageViewerModal
+    url={buktiUrl}
+    name={buktiName}
+    onClose={()=>setShow(false)}
+  />,
+  document.body
+)}
     </>
   );
 }
@@ -1245,35 +1246,46 @@ function AgenDashboard({user, onLogout, refreshPwdMap}) {
                 </tr>
 
                 {/* Expand */}
-                {isExp&&(
-                  <tr style={{background:`${color}05`,borderBottom:"1px solid rgba(255,255,255,.04)"}}>
-                    <td colSpan={5} style={{padding:"16px 20px"}}>
-                      <div style={{animation:"fadeUp .2s ease"}}>
-                        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:8,marginBottom:r.buktiName?12:0}}>
-                          {[
-                            ["Tanggal",    fmtDate(r.tanggal), "#64748B"],
-                            ["Tipe",       isKomisi?"Transfer Komisi":"Tarik Saving", color],
-                            ["Jumlah",     rp(r.jumlah),       color],
-                            ["Keterangan", r.keterangan||"—",  "#94A3B8"],
-                          ].map(([l,v,c])=>(
-                            <div key={l} style={{background:"rgba(255,255,255,.03)",borderRadius:8,padding:"8px 10px"}}>
-                              <div style={{fontSize:9,color:"#334155",textTransform:"uppercase",letterSpacing:".07em",marginBottom:3}}>{l}</div>
-                              <div style={{fontSize:12,color:c,fontWeight:l==="Jumlah"?700:400,
-                                fontFamily:l==="Jumlah"?"'DM Mono',monospace":"inherit"}}>{v}</div>
-                            </div>
-                          ))}
-                        </div>
+               {isExp&&(
+  <tr style={{background:`${color}05`,borderBottom:"1px solid rgba(255,255,255,.04)"}}>
+    <td colSpan={5} style={{padding:"16px 20px"}}>
+      <div style={{animation:"fadeUp .2s ease",display:"flex",gap:16,flexWrap:"wrap",alignItems:"flex-start"}}>
 
-                        {/* Bukti transfer */}
-                        {r.buktiName&&(
-                          <div style={{marginTop:8}}>
-                            <BuktiThumb buktiName={r.buktiName} buktiUrl={r.buktiUrl} color={color}/>
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                )}
+        {/* Kiri: info detail */}
+        <div style={{flex:1,minWidth:200}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:8}}>
+            {[
+              ["Tanggal",    fmtDate(r.tanggal),                          "#64748B"],
+              ["Tipe",       isKomisi?"Transfer Komisi":"Tarik Saving",   color],
+              ["Jumlah",     rp(r.jumlah),                                color],
+              ["Keterangan", r.keterangan||"—",                           "#94A3B8"],
+            ].map(([l,v,c])=>(
+              <div key={l} style={{background:"rgba(255,255,255,.03)",borderRadius:8,padding:"8px 10px"}}>
+                <div style={{fontSize:9,color:"#334155",textTransform:"uppercase",
+                  letterSpacing:".07em",marginBottom:3}}>{l}</div>
+                <div style={{fontSize:12,color:c,fontWeight:l==="Jumlah"?700:400,
+                  fontFamily:l==="Jumlah"?"'DM Mono',monospace":"inherit"}}>{v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Kanan: bukti transfer */}
+        {r.buktiName ? (
+          <BuktiThumb buktiName={r.buktiName} buktiUrl={r.buktiUrl} color={color}/>
+        ) : (
+          <div style={{background:"rgba(255,255,255,.02)",border:"1px dashed rgba(255,255,255,.08)",
+            borderRadius:10,padding:"10px 14px",minWidth:140,textAlign:"center"}}>
+            <div style={{fontSize:9,color:"#334155",letterSpacing:".07em",textTransform:"uppercase",marginBottom:6}}>Bukti</div>
+            <div style={{fontSize:22,marginBottom:4,opacity:.3}}>📎</div>
+            <div style={{fontSize:11,color:"#334155"}}>Tidak ada bukti</div>
+          </div>
+        )}
+
+      </div>
+    </td>
+  </tr>
+)}
               </React.Fragment>
             );
           })}
