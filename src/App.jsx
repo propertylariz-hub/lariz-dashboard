@@ -578,13 +578,39 @@ function TransferUnifiedModal({agent,agData,onConfirmKomisi,onConfirmSaving,onCl
   const valid=validKom&&validSav&&(tipe==="both"?numKom>0||numSav>0:true);
   const tgl=new Date().toLocaleDateString("id-ID",{day:"2-digit",month:"long",year:"numeric"});
   const fmtN=n=>n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,".");
-  const handleConfirm=async()=>{
+  const handleConfirm=async()=>{const handleConfirm=async()=>{
     setLoading(true);
     const bName=bukti?bukti.name:"";
     if((tipe==="komisi"||tipe==="both")&&numKom>0) await onConfirmKomisi({agent:agent.id,jumlah:numKom,keterangan:ket||`Transfer komisi ${agent.label}`,buktiName:bName,buktiFile:bukti?.file||null});
     if((tipe==="saving"||tipe==="both")&&numSav>0) await onConfirmSaving({agent:agent.id,jumlah:numSav,keterangan:ket||`Tarik saving ${agent.label}`,buktiName:bName,buktiFile:bukti?.file||null});
-    setLoading(false);setStep(3);
+    setLoading(false);
+    setStep(3);
+
+    // ✅ Auto buka WA
+    setTimeout(()=>{
+      const fmtN=n=>n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,".");
+      const tgl=new Date().toLocaleDateString("id-ID",{day:"2-digit",month:"long",year:"numeric"});
+      const waLines=[`Halo *${agent.label}* 👋`,``,`Admin Lariz Property telah melakukan transfer:`,``];
+      if((tipe==="komisi"||tipe==="both")&&numKom>0) waLines.push(`💸 Komisi   : *Rp ${fmtN(numKom)}*`);
+      if((tipe==="saving"||tipe==="both")&&numSav>0) waLines.push(`🏦 Saving   : *Rp ${fmtN(numSav)}*`);
+      waLines.push(`📅 Tanggal  : ${tgl}`);
+      if(ket) waLines.push(`📝 Ket      : ${ket}`);
+      waLines.push(``,`Bukti terlampir. Silakan cek rekening 🙏`,`_Lariz Property_`);
+      window.open(`https://wa.me/${agent.wa}?text=${encodeURIComponent(waLines.join("\n"))}`,"_blank");
+    },500);
   };
+
+  // ✅ Auto kirim WA setelah simpan
+  setTimeout(()=>{
+    const waLines=[`Halo *${agent.label}* 👋`,``,`Admin Lariz Property telah melakukan transfer:`,``];
+    if((tipe==="komisi"||tipe==="both")&&numKom>0) waLines.push(`💸 Komisi   : *Rp ${numKom.toString().replace(/\B(?=(\d{3})+(?!\d))/g,".")}*`);
+    if((tipe==="saving"||tipe==="both")&&numSav>0) waLines.push(`🏦 Saving   : *Rp ${numSav.toString().replace(/\B(?=(\d{3})+(?!\d))/g,".")}*`);
+    waLines.push(`📅 Tanggal  : ${new Date().toLocaleDateString("id-ID",{day:"2-digit",month:"long",year:"numeric"})}`);
+    if(ket) waLines.push(`📝 Ket      : ${ket}`);
+    waLines.push(``,`Bukti terlampir. Silakan cek rekening 🙏`,`_Lariz Property_`);
+    window.open(`https://wa.me/${agent.wa}?text=${encodeURIComponent(waLines.join("\n"))}`,"_blank");
+  }, 500);
+};
   const waLines=[`Halo *${agent.label}* 👋`,``,`Admin Lariz Property telah melakukan transfer:`,``];
   if((tipe==="komisi"||tipe==="both")&&numKom>0) waLines.push(`💸 Komisi   : *Rp ${fmtN(numKom)}*`);
   if((tipe==="saving"||tipe==="both")&&numSav>0) waLines.push(`🏦 Saving   : *Rp ${fmtN(numSav)}*`);
