@@ -464,30 +464,162 @@ function TransferUnifiedModal({agent,agData,onConfirmKomisi,onConfirmSaving,onCl
   );
 }
 
-function EditRecordModal({rec,onSave,onClose}) {
-  const isFee=rec.type==="fee",isProm=rec.type==="promo",isWd=rec.type==="withdraw"||rec.type==="komisi";
+function EditRecordModal({rec, onSave, onClose}) {
+  const isFee=rec.type==="fee", isProm=rec.type==="promo", isWd=rec.type==="withdraw"||rec.type==="komisi";
   const [form,setForm]=useState({...rec});
+  const [bukti,setBukti]=useState(null); // {file, url, name}
+  const [uploading,setUploading]=useState(false);
+  const fileRef=useRef();
+
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const setMon=k=>e=>{const r=e.target.value.replace(/\D/g,"");set(k,r?parseInt(r).toString().replace(/\B(?=(\d{3})+(?!\d))/g,".") :"");};
   const num=k=>parseFloat(String(form[k]).replace(/[^0-9]/g,""))||0;
-  const save=()=>{
+
+  const save=async()=>{
+    setUploading(true);
     const updated={...form};
-    if(isFee){const net=num("feeLariz")-num("feeAgentBT");const bdb=net*.4,aris=net*.225,argo=net*.225,darma=net*.15;Object.assign(updated,{feeLariz:num("feeLariz"),feeAgentBT:num("feeAgentBT"),netCommission:net,bdb,aris,argo,darma,opBdb:bdb*.7,savingAris:bdb*.1,savingArgo:bdb*.1,savingDarma:bdb*.1});}
-    if(isProm)updated.jumlah=num("jumlah");if(isWd)updated.jumlah=num("jumlah");
+
+    // Upload bukti baru jika ada
+    if(bukti?.file) {
+      const url = await uploadBuktiToGAS(bukti.file);
+      updated.buktiName = bukti.name;
+      updated.buktiUrl  = url;
+    }
+
+    if(isFee){
+      const net=num("feeLariz")-num("feeAgentBT");
+      const bdb=net*.4,aris=net*.225,argo=net*.225,darma=net*.15;
+      Object.assign(updated,{feeLariz:num("feeLariz"),feeAgentBT:num("feeAgentBT"),
+        netCommission:net,bdb,aris,argo,darma,
+        opBdb:bdb*.7,savingAris:bdb*.1,savingArgo:bdb*.1,savingDarma:bdb*.1});
+    }
+    if(isProm) updated.jumlah=num("jumlah");
+    if(isWd)   updated.jumlah=num("jumlah");
+
+    setUploading(false);
     onSave(updated);
   };
+
   const typeColor=isFee?"#34D399":isProm?"#F87171":"#F59E0B";
   const typeLabel=isFee?"FEE":isProm?"PROMO":"TARIK";
+  const hasUrl = !!form.buktiUrl && form.buktiUrl.startsWith("http");
+
   return(
-    <Modal title="EDIT TRANSAKSI" onClose={onClose} width={480}>
-      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:18}}><span style={{padding:"3px 10px",borderRadius:99,fontSize:11,fontWeight:700,background:`${typeColor}15`,color:typeColor,border:`1px solid ${typeColor}30`}}>{typeLabel}</span><span style={{fontSize:12,color:"#475569"}}>ID: {rec.id}</span></div>
-      <div style={{display:"flex",flexDirection:"column",gap:10}}>
-        <div><label style={S.lbl}>Tanggal</label><input type="date" value={form.tanggal||""} onChange={e=>set("tanggal",e.target.value)} style={S.inp}/></div>
-        {isFee&&<><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><div><label style={S.lbl}>Nama Dev</label><input value={form.namaDev||""} onChange={e=>set("namaDev",e.target.value)} style={S.inp}/></div><div><label style={S.lbl}>Nama Konsumen</label><input value={form.namaKonsumen||""} onChange={e=>set("namaKonsumen",e.target.value)} style={S.inp}/></div></div><div><label style={S.lbl}>Fee Lariz (Rp)</label><div style={{position:"relative"}}><span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:11,color:"#475569",fontFamily:"'DM Mono',monospace"}}>Rp</span><input value={form.feeLariz||""} onChange={setMon("feeLariz")} style={{...S.inp,paddingLeft:28}}/></div></div><div><label style={S.lbl}>Fee Agent BT (Rp)</label><div style={{position:"relative"}}><span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:11,color:"#475569",fontFamily:"'DM Mono',monospace"}}>Rp</span><input value={form.feeAgentBT||""} onChange={setMon("feeAgentBT")} style={{...S.inp,paddingLeft:28}}/></div></div><div style={{padding:"10px 12px",background:"rgba(99,102,241,.08)",border:"1px solid rgba(99,102,241,.2)",borderRadius:9,display:"flex",justifyContent:"space-between"}}><span style={{fontSize:12,color:"#64748B"}}>Net Commission</span><span style={{fontFamily:"'DM Mono',monospace",color:"#818CF8",fontWeight:700,fontSize:13}}>{rp(num("feeLariz")-num("feeAgentBT"))}</span></div></>}
-        {(isProm||isWd)&&<><div><label style={S.lbl}>Keterangan</label><input value={form.keterangan||""} onChange={e=>set("keterangan",e.target.value)} style={S.inp}/></div><div><label style={S.lbl}>Jumlah (Rp)</label><div style={{position:"relative"}}><span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:11,color:"#475569",fontFamily:"'DM Mono',monospace"}}>Rp</span><input value={form.jumlah||""} onChange={setMon("jumlah")} style={{...S.inp,paddingLeft:28}}/></div></div></>}
-        {isFee&&<div><label style={S.lbl}>Keterangan</label><textarea value={form.keterangan||""} onChange={e=>set("keterangan",e.target.value)} style={{...S.inp,minHeight:50,resize:"vertical"}}/></div>}
+    <Modal title="EDIT TRANSAKSI" onClose={onClose} width={500}>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:18}}>
+        <span style={{padding:"3px 10px",borderRadius:99,fontSize:11,fontWeight:700,
+          background:`${typeColor}15`,color:typeColor,border:`1px solid ${typeColor}30`}}>{typeLabel}</span>
+        <span style={{fontSize:12,color:"#475569"}}>ID: {rec.id}</span>
       </div>
-      <div style={{display:"flex",gap:10,marginTop:20}}><button onClick={onClose} style={{flex:1,padding:"11px",borderRadius:10,border:"1px solid rgba(255,255,255,.1)",background:"transparent",color:"#64748B",fontSize:13,fontWeight:600,cursor:"pointer"}}>Batal</button><button onClick={save} style={{flex:2,padding:"11px",borderRadius:10,border:"none",background:"linear-gradient(135deg,#6366F1,#4F46E5)",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}}>💾 Simpan Perubahan</button></div>
+
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {/* Tanggal */}
+        <div>
+          <label style={S.lbl}>Tanggal</label>
+          <input type="date" value={form.tanggal||""} onChange={e=>set("tanggal",e.target.value)} style={S.inp}/>
+        </div>
+
+        {/* Field khusus FEE */}
+        {isFee&&<>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <div><label style={S.lbl}>Nama Dev</label><input value={form.namaDev||""} onChange={e=>set("namaDev",e.target.value)} style={S.inp}/></div>
+            <div><label style={S.lbl}>Nama Konsumen</label><input value={form.namaKonsumen||""} onChange={e=>set("namaKonsumen",e.target.value)} style={S.inp}/></div>
+          </div>
+          <div><label style={S.lbl}>Fee Lariz (Rp)</label><div style={{position:"relative"}}><span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:11,color:"#475569",fontFamily:"'DM Mono',monospace"}}>Rp</span><input value={form.feeLariz||""} onChange={setMon("feeLariz")} style={{...S.inp,paddingLeft:28}}/></div></div>
+          <div><label style={S.lbl}>Fee Agent BT (Rp)</label><div style={{position:"relative"}}><span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:11,color:"#475569",fontFamily:"'DM Mono',monospace"}}>Rp</span><input value={form.feeAgentBT||""} onChange={setMon("feeAgentBT")} style={{...S.inp,paddingLeft:28}}/></div></div>
+          <div style={{padding:"10px 12px",background:"rgba(99,102,241,.08)",border:"1px solid rgba(99,102,241,.2)",borderRadius:9,display:"flex",justifyContent:"space-between"}}>
+            <span style={{fontSize:12,color:"#64748B"}}>Net Commission</span>
+            <span style={{fontFamily:"'DM Mono',monospace",color:"#818CF8",fontWeight:700,fontSize:13}}>{rp(num("feeLariz")-num("feeAgentBT"))}</span>
+          </div>
+          <div><label style={S.lbl}>Keterangan</label><textarea value={form.keterangan||""} onChange={e=>set("keterangan",e.target.value)} style={{...S.inp,minHeight:50,resize:"vertical"}}/></div>
+        </>}
+
+        {/* Field khusus PROMO & WITHDRAW */}
+        {(isProm||isWd)&&<>
+          <div><label style={S.lbl}>Keterangan</label><input value={form.keterangan||""} onChange={e=>set("keterangan",e.target.value)} style={S.inp}/></div>
+          <div><label style={S.lbl}>Jumlah (Rp)</label><div style={{position:"relative"}}><span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:11,color:"#475569",fontFamily:"'DM Mono',monospace"}}>Rp</span><input value={form.jumlah||""} onChange={setMon("jumlah")} style={{...S.inp,paddingLeft:28}}/></div></div>
+
+          {/* ✅ Upload Bukti */}
+          <div>
+            <label style={S.lbl}>Bukti Transfer</label>
+
+            {/* Bukti lama */}
+            {form.buktiName && !bukti && (
+              <div style={{marginBottom:8,padding:"8px 12px",background:"rgba(255,255,255,.03)",
+                border:"1px solid rgba(255,255,255,.07)",borderRadius:9,
+                display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div>
+                  <div style={{fontSize:11,color:"#64748B",marginBottom:2}}>Bukti saat ini:</div>
+                  <div style={{fontSize:12,color:"#CBD5E1",fontWeight:600}}>{form.buktiName}</div>
+                </div>
+                <div style={{display:"flex",gap:6}}>
+                  {hasUrl && (
+                    <button onClick={()=>window.open(form.buktiUrl,"_blank")}
+                      style={{padding:"4px 10px",borderRadius:6,border:"1px solid rgba(99,102,241,.3)",
+                        background:"rgba(99,102,241,.1)",color:"#818CF8",fontSize:11,fontWeight:600,cursor:"pointer"}}>
+                      🔍 Lihat
+                    </button>
+                  )}
+                  <button onClick={()=>set("buktiName","")}
+                    style={{padding:"4px 10px",borderRadius:6,border:"1px solid rgba(248,113,113,.3)",
+                      background:"rgba(248,113,113,.08)",color:"#F87171",fontSize:11,fontWeight:600,cursor:"pointer"}}>
+                    ✕ Hapus
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Upload baru */}
+            <input ref={fileRef} type="file" accept="image/*,.pdf"
+              onChange={e=>{const f=e.target.files[0];if(f)setBukti({file:f,url:URL.createObjectURL(f),name:f.name});}}
+              style={{display:"none"}}/>
+            <div
+              onClick={()=>fileRef.current.click()}
+              onDrop={e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f)setBukti({file:f,url:URL.createObjectURL(f),name:f.name});}}
+              onDragOver={e=>e.preventDefault()}
+              style={{border:`2px dashed ${bukti?typeColor:"rgba(255,255,255,.1)"}`,borderRadius:10,
+                padding:"14px 12px",textAlign:"center",cursor:"pointer",transition:"all .2s",
+                background:bukti?`${typeColor}06`:"rgba(255,255,255,.02)"}}>
+              {bukti?(
+                <div>
+                  {bukti.file.type.startsWith("image/")?
+                    <img src={bukti.url} alt="bukti" style={{maxHeight:120,maxWidth:"100%",borderRadius:7,marginBottom:6,objectFit:"contain"}}/>
+                    :<div style={{fontSize:32,marginBottom:6}}>📄</div>
+                  }
+                  <p style={{fontSize:12,color:typeColor,fontWeight:600}}>{bukti.name}</p>
+                  <p style={{fontSize:10,color:"#475569",marginTop:3}}>Klik untuk ganti</p>
+                </div>
+              ):(
+                <div>
+                  <div style={{fontSize:24,opacity:.4,marginBottom:6}}>📎</div>
+                  <p style={{fontSize:12,color:"#64748B"}}>{form.buktiName?"Klik untuk ganti bukti":"Klik atau drag bukti baru"}</p>
+                  <p style={{fontSize:10,color:"#334155",marginTop:3}}>JPG, PNG, PDF</p>
+                </div>
+              )}
+            </div>
+            {bukti&&(
+              <button onClick={()=>setBukti(null)}
+                style={{marginTop:6,padding:"4px 10px",borderRadius:6,
+                  border:"1px solid rgba(248,113,113,.3)",background:"rgba(248,113,113,.08)",
+                  color:"#F87171",fontSize:11,fontWeight:600,cursor:"pointer"}}>
+                ✕ Batal ganti bukti
+              </button>
+            )}
+          </div>
+        </>}
+      </div>
+
+      <div style={{display:"flex",gap:10,marginTop:20}}>
+        <button onClick={onClose} style={{flex:1,padding:"11px",borderRadius:10,
+          border:"1px solid rgba(255,255,255,.1)",background:"transparent",
+          color:"#64748B",fontSize:13,fontWeight:600,cursor:"pointer"}}>Batal</button>
+        <button onClick={save} disabled={uploading} style={{flex:2,padding:"11px",borderRadius:10,border:"none",
+          background:uploading?"#1E293B":"linear-gradient(135deg,#6366F1,#4F46E5)",
+          color:uploading?"#334155":"#fff",fontSize:13,fontWeight:700,cursor:uploading?"not-allowed":"pointer",
+          boxShadow:uploading?"none":"0 4px 16px rgba(99,102,241,.3)"}}>
+          {uploading?"⏳ Mengupload bukti...":"💾 Simpan Perubahan"}
+        </button>
+      </div>
     </Modal>
   );
 }
