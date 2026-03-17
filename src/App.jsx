@@ -1091,6 +1091,9 @@ function AgenDashboard({user, onLogout, refreshPwdMap}) {
   const totalLariz=myRecs.reduce((s,r)=>s+(parseFloat(r.feeLariz)||0),0);
   const totalWd=withdrawRecs.reduce((s,r)=>s+(parseFloat(r.jumlah)||0),0);
   const saldoTabungan=totalSaving-totalWd;
+  const komisiRecs=data.filter(r=>r.type==="komisi"&&r.agent===user.username);
+  const allTransaksi=[...withdrawRecs,...komisiRecs].sort((a,b)=>new Date(b.tanggal)-new Date(a.tanggal));
+  const [expandedTrans,setExpandedTrans]=useState(null);
 
   const SI=({col})=>(
     <span style={{marginLeft:3,opacity:sortCol===col?1:.3,fontSize:9,color:user.color}}>
@@ -1175,6 +1178,124 @@ function AgenDashboard({user, onLogout, refreshPwdMap}) {
             </button>
           </div>
         </div>
+        {/* ── Tabel Riwayat Transfer & Tabungan ── */}
+{allTransaksi.length>0&&(
+  <div style={{background:"rgba(255,255,255,.02)",border:"1px solid rgba(255,255,255,.06)",
+    borderRadius:16,overflow:"hidden",marginBottom:20}}>
+    <div style={{padding:"14px 18px",borderBottom:"1px solid rgba(255,255,255,.05)",
+      display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <div>
+        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,letterSpacing:".12em",color:"#CBD5E1"}}>
+          📤 Riwayat Transfer & Penarikan
+        </div>
+        <div style={{fontSize:11,color:"#334155"}}>{allTransaksi.length} transaksi</div>
+      </div>
+    </div>
+    <div className="table-scroll">
+      <table style={{width:"100%",minWidth:500,borderCollapse:"collapse",fontSize:13}}>
+        <thead>
+          <tr style={{background:"rgba(255,255,255,.03)"}}>
+            {["Tanggal","Tipe","Keterangan","Jumlah","Detail"].map(h=>(
+              <th key={h} style={{padding:"9px 14px",textAlign:"left",fontSize:10,fontWeight:700,
+                letterSpacing:".1em",color:"#334155",textTransform:"uppercase",whiteSpace:"nowrap",
+                borderBottom:"1px solid rgba(255,255,255,.05)"}}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {allTransaksi.map((r,i)=>{
+            const isKomisi=r.type==="komisi";
+            const isExp=expandedTrans===i;
+            const color=isKomisi?"#F87171":"#F59E0B";
+            const badge=isKomisi?"KOMISI":"SAVING";
+            return(
+              <React.Fragment key={r.id||i}>
+                <tr className="row-hover"
+                  style={{borderBottom:"1px solid rgba(255,255,255,.04)",
+                    background:isExp?`${color}08`:i%2===0?"transparent":"rgba(255,255,255,.012)"}}>
+                  <td style={S.td}>
+                    <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:"#475569",whiteSpace:"nowrap"}}>
+                      {fmtDate(r.tanggal)}
+                    </span>
+                  </td>
+                  <td style={S.td}>
+                    <span style={{padding:"2px 8px",borderRadius:99,fontSize:10,fontWeight:700,
+                      background:`${color}15`,color,border:`1px solid ${color}30`}}>
+                      {badge}
+                    </span>
+                  </td>
+                  <td style={{...S.td,maxWidth:220}}>
+                    <span style={{color:"#94A3B8",overflow:"hidden",textOverflow:"ellipsis",
+                      whiteSpace:"nowrap",display:"block"}}>{r.keterangan||"—"}</span>
+                  </td>
+                  <td style={S.td}>
+                    <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,color,whiteSpace:"nowrap"}}>
+                      - {rp(r.jumlah)}
+                    </span>
+                  </td>
+                  <td style={S.td}>
+                    <button onClick={()=>setExpandedTrans(isExp?null:i)}
+                      style={{padding:"4px 10px",borderRadius:7,border:`1px solid ${color}30`,
+                        background:isExp?`${color}15`:"transparent",
+                        color:isExp?color:"#475569",fontSize:11,fontWeight:600,
+                        cursor:"pointer",transition:"all .15s",whiteSpace:"nowrap"}}>
+                      {isExp?"▲ Tutup":"▼ Detail"}
+                    </button>
+                  </td>
+                </tr>
+
+                {/* Expand */}
+                {isExp&&(
+                  <tr style={{background:`${color}05`,borderBottom:"1px solid rgba(255,255,255,.04)"}}>
+                    <td colSpan={5} style={{padding:"16px 20px"}}>
+                      <div style={{animation:"fadeUp .2s ease"}}>
+                        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:8,marginBottom:r.buktiName?12:0}}>
+                          {[
+                            ["Tanggal",    fmtDate(r.tanggal), "#64748B"],
+                            ["Tipe",       isKomisi?"Transfer Komisi":"Tarik Saving", color],
+                            ["Jumlah",     rp(r.jumlah),       color],
+                            ["Keterangan", r.keterangan||"—",  "#94A3B8"],
+                          ].map(([l,v,c])=>(
+                            <div key={l} style={{background:"rgba(255,255,255,.03)",borderRadius:8,padding:"8px 10px"}}>
+                              <div style={{fontSize:9,color:"#334155",textTransform:"uppercase",letterSpacing:".07em",marginBottom:3}}>{l}</div>
+                              <div style={{fontSize:12,color:c,fontWeight:l==="Jumlah"?700:400,
+                                fontFamily:l==="Jumlah"?"'DM Mono',monospace":"inherit"}}>{v}</div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Bukti transfer */}
+                        {r.buktiName&&(
+                          <div style={{marginTop:8}}>
+                            <BuktiThumb buktiName={r.buktiName} buktiUrl={r.buktiUrl} color={color}/>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </tbody>
+        <tfoot>
+          <tr style={{background:"rgba(255,255,255,.04)",borderTop:"2px solid rgba(255,255,255,.1)"}}>
+            <td colSpan={3} style={{padding:"11px 14px",fontSize:10,fontWeight:700,
+              letterSpacing:".1em",color:"#334155",textTransform:"uppercase"}}>
+              TOTAL DITRANSFER ({allTransaksi.length})
+            </td>
+            <td style={S.td}>
+              <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,color:"#F87171",fontSize:13}}>
+                - {rp(allTransaksi.reduce((s,r)=>s+(parseFloat(r.jumlah)||0),0))}
+              </span>
+            </td>
+            <td/>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+)}
 
         {/* ── Tabel Transaksi dengan Expand ── */}
         <div style={{background:"rgba(255,255,255,.02)",border:"1px solid rgba(255,255,255,.06)",borderRadius:16,overflow:"hidden"}}>
