@@ -271,7 +271,7 @@ function Modal({title,onClose,children,width=480}) {
 function ImageViewerModal({url,name,onClose}) {
   const isPdf=name&&name.toLowerCase().endsWith(".pdf");
   return(
-    <div style={{position:"fixed",inset:0,zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,.85)",backdropFilter:"blur(12px)",animation:"fadeIn .2s ease",padding:16}} onClick={onClose}>
+    <div style={{position:"fixed",inset:0,zIndex:99999,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,.85)",backdropFilter:"blur(12px)",animation:"fadeIn .2s ease",padding:16}} onClick={onClose}>
       <div style={{position:"relative",maxWidth:"90vw",maxHeight:"90vh",animation:"fadeUp .25s ease"}} onClick={e=>e.stopPropagation()}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,padding:"0 4px"}}>
           <span style={{fontSize:13,color:"#94A3B8",fontWeight:500,maxWidth:300,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>📎 {name||"Bukti Transfer"}</span>
@@ -373,14 +373,13 @@ function BuktiThumb({buktiName, buktiUrl, color="#6366F1"}) {
       </div>
 
       {/* Popup viewer */}
-      {show && ReactDOM.createPortal(
-  <ImageViewerModal
-    url={buktiUrl}
-    name={buktiName}
-    onClose={()=>setShow(false)}
-  />,
-  document.body
-)}
+      {show && (
+        <ImageViewerModal
+        url={buktiUrl}
+        name={buktiName}
+        onClose={()=>setShow(false)}
+        />
+      )}
     </>
   );
 }
