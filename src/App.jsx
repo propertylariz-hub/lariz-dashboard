@@ -1053,36 +1053,64 @@ function WaRequestModal({user,saldo,onClose}) {
   );
 }
 
-function AgenDashboard({user,onLogout,refreshPwdMap}) {
-  const [data,setData]=useState([]); const [search,setSearch]=useState("");
-  const [sortCol,setSortCol]=useState("tanggal"); const [sortDir,setSortDir]=useState("desc");
-  const [showWaModal,setShowWaModal]=useState(false); const [showChangePwd,setShowChangePwd]=useState(false);
+function AgenDashboard({user, onLogout, refreshPwdMap}) {
+  const [data,setData]=useState([]);
+  const [search,setSearch]=useState("");
+  const [sortCol,setSortCol]=useState("tanggal");
+  const [sortDir,setSortDir]=useState("desc");
+  const [showWaModal,setShowWaModal]=useState(false);
+  const [showChangePwd,setShowChangePwd]=useState(false);
+  const [expandedRow,setExpandedRow]=useState(null); // ✅ tambah ini
 
   useEffect(()=>{
-    gasGet({action:"getAll"}).then(d=>{if(d.status==="ok")setData(d.records||[]);}).catch(e=>console.error("[Lariz] agen fetch:",e.message));
+    gasGet({action:"getAll"})
+      .then(d=>{if(d.status==="ok")setData(d.records||[]);})
+      .catch(e=>console.error("[Lariz] agen fetch:",e.message));
   },[]);
 
   const feeRecs=data.filter(r=>r.type==="fee");
   const withdrawRecs=data.filter(r=>r.type==="withdraw"&&r.agent===user.username);
   const myRecs=feeRecs.filter(r=>(parseFloat(r[user.feeField])||0)+(parseFloat(r[user.savingField])||0)>0);
-  const filtered=myRecs.filter(r=>(r.namaDev||"").toLowerCase().includes(search.toLowerCase())||(r.namaKonsumen||"").toLowerCase().includes(search.toLowerCase()));
-  const sorted=[...filtered].sort((a,b)=>{let va=a[sortCol]||0,vb=b[sortCol]||0;if(sortCol==="tanggal"){va=new Date(va);vb=new Date(vb);}else{va=parseFloat(va)||0;vb=parseFloat(vb)||0;}return sortDir==="asc"?(va>vb?1:-1):(va<vb?1:-1);});
-  const toggleSort=col=>{if(sortCol===col)setSortDir(d=>d==="asc"?"desc":"asc");else{setSortCol(col);setSortDir("desc");}};
+  const filtered=myRecs.filter(r=>
+    (r.namaDev||"").toLowerCase().includes(search.toLowerCase())||
+    (r.namaKonsumen||"").toLowerCase().includes(search.toLowerCase())
+  );
+  const sorted=[...filtered].sort((a,b)=>{
+    let va=a[sortCol]||0,vb=b[sortCol]||0;
+    if(sortCol==="tanggal"){va=new Date(va);vb=new Date(vb);}
+    else{va=parseFloat(va)||0;vb=parseFloat(vb)||0;}
+    return sortDir==="asc"?(va>vb?1:-1):(va<vb?1:-1);
+  });
+  const toggleSort=col=>{
+    if(sortCol===col)setSortDir(d=>d==="asc"?"desc":"asc");
+    else{setSortCol(col);setSortDir("desc");}
+  };
+
   const totalFee=myRecs.reduce((s,r)=>s+(parseFloat(r[user.feeField])||0),0);
   const totalSaving=myRecs.reduce((s,r)=>s+(parseFloat(r[user.savingField])||0),0);
   const totalLariz=myRecs.reduce((s,r)=>s+(parseFloat(r.feeLariz)||0),0);
   const totalWd=withdrawRecs.reduce((s,r)=>s+(parseFloat(r.jumlah)||0),0);
   const saldoTabungan=totalSaving-totalWd;
-  const SI=({col})=><span style={{marginLeft:3,opacity:sortCol===col?1:.3,fontSize:9,color:user.color}}>{sortCol===col?(sortDir==="asc"?"▲":"▼"):"⇅"}</span>;
+
+  const SI=({col})=>(
+    <span style={{marginLeft:3,opacity:sortCol===col?1:.3,fontSize:9,color:user.color}}>
+      {sortCol===col?(sortDir==="asc"?"▲":"▼"):"⇅"}
+    </span>
+  );
 
   return(
     <div style={{minHeight:"100vh",background:`radial-gradient(ellipse 100% 50% at 50% -5%,${user.color}0C 0%,transparent 65%),#05070E`}}>
       <style>{G}</style>
+
+      {/* ── Header ── */}
       <header style={{position:"sticky",top:0,zIndex:100,background:"rgba(5,7,14,.94)",backdropFilter:"blur(20px)",borderBottom:"1px solid rgba(255,255,255,.06)"}}>
         <div className="header-inner" style={{maxWidth:1100,margin:"auto"}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <div style={{width:36,height:36,borderRadius:10,background:`${user.color}18`,border:`1px solid ${user.color}35`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Bebas Neue',sans-serif",fontSize:14,color:user.color,flexShrink:0}}>{user.avatar}</div>
-            <div><div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:17,letterSpacing:".1em",color:"#E2E8F0"}}>{user.label}</div><div style={{fontSize:10,color:"#334155",letterSpacing:".1em"}}>LARIZ PROPERTY · AGEN</div></div>
+            <div>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:17,letterSpacing:".1em",color:"#E2E8F0"}}>{user.label}</div>
+              <div style={{fontSize:10,color:"#334155",letterSpacing:".1em"}}>LARIZ PROPERTY · AGEN</div>
+            </div>
           </div>
           <div style={{display:"flex",gap:8}}>
             <button onClick={()=>setShowChangePwd(true)} style={{padding:"6px 10px",borderRadius:8,border:`1px solid ${user.color}25`,background:`${user.color}08`,color:user.color,fontSize:13,cursor:"pointer"}} className="btn-ghost">🔑</button>
@@ -1092,42 +1120,275 @@ function AgenDashboard({user,onLogout,refreshPwdMap}) {
       </header>
 
       <div style={{maxWidth:1100,margin:"auto",padding:"24px 16px 100px"}}>
+
+        {/* ── KPI Cards ── */}
         <div className="grid-4" style={{gap:12,marginBottom:20}}>
-          {[{l:"Jumlah Listing",v:myRecs.length,c:user.color,isN:true,icon:"🏠"},{l:"Total Fee Lariz",v:totalLariz,c:"#34D399",icon:"📥"},{l:"Total Pendapatan",v:totalFee+totalSaving,c:user.color,icon:"💰"},{l:"Saldo Tabungan",v:saldoTabungan,c:"#F59E0B",icon:"🏦"}].map(s=>(<div key={s.l} style={{background:`${s.c}08`,border:`1px solid ${s.c}20`,borderRadius:14,padding:"16px 18px",position:"relative",overflow:"hidden"}}><div style={{position:"absolute",top:0,left:0,right:0,height:2,background:s.c,opacity:.5}}/><div style={{fontSize:10,color:"#475569",textTransform:"uppercase",letterSpacing:".1em",marginBottom:6}}>{s.icon} {s.l}</div><div style={{fontFamily:"'DM Mono',monospace",fontSize:16,fontWeight:700,color:s.c}}>{s.isN?s.v:rpS(s.v)}</div></div>))}
+          {[
+            {l:"Jumlah Listing",   v:myRecs.length,       c:user.color, isN:true, icon:"🏠"},
+            {l:"Total Fee Lariz",  v:totalLariz,           c:"#34D399",  icon:"📥"},
+            {l:"Total Pendapatan", v:totalFee+totalSaving, c:user.color, icon:"💰"},
+            {l:"Saldo Tabungan",   v:saldoTabungan,        c:"#F59E0B",  icon:"🏦"},
+          ].map(s=>(
+            <div key={s.l} style={{background:`${s.c}08`,border:`1px solid ${s.c}20`,borderRadius:14,padding:"16px 18px",position:"relative",overflow:"hidden"}}>
+              <div style={{position:"absolute",top:0,left:0,right:0,height:2,background:s.c,opacity:.5}}/>
+              <div style={{fontSize:10,color:"#475569",textTransform:"uppercase",letterSpacing:".1em",marginBottom:6}}>{s.icon} {s.l}</div>
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:16,fontWeight:700,color:s.c}}>
+                {s.isN ? s.v : rpS(s.v)}
+              </div>
+            </div>
+          ))}
         </div>
+
+        {/* ── Saldo Card + WA CTA ── */}
         <div style={{marginBottom:24,background:`linear-gradient(135deg,${user.color}0E 0%,rgba(255,255,255,.02) 100%)`,border:`1px solid ${user.color}25`,borderRadius:18,padding:"22px 24px"}}>
           <div className="saldo-card-inner">
             <div style={{flex:1,minWidth:200}}>
               <div style={{fontSize:11,color:"#475569",letterSpacing:".1em",textTransform:"uppercase",marginBottom:8}}>🏦 Saldo Tabungan BDB Saya</div>
-              <div style={{fontFamily:"'DM Mono',monospace",fontSize:32,fontWeight:700,color:user.color,marginBottom:4}}><AnimNum value={saldoTabungan}/></div>
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:32,fontWeight:700,color:user.color,marginBottom:4}}>
+                <AnimNum value={saldoTabungan}/>
+              </div>
               <div style={{display:"flex",gap:20,marginTop:12}}>
-                <div><div style={{fontSize:10,color:"#334155"}}>Total Masuk</div><div style={{fontFamily:"'DM Mono',monospace",fontSize:13,color:"#34D399",fontWeight:600}}>{rp(totalSaving)}</div></div>
+                <div>
+                  <div style={{fontSize:10,color:"#334155"}}>Total Masuk</div>
+                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:13,color:"#34D399",fontWeight:600}}>{rp(totalSaving)}</div>
+                </div>
                 <div style={{width:1,background:"rgba(255,255,255,.06)"}}/>
-                <div><div style={{fontSize:10,color:"#334155"}}>Total Ditarik</div><div style={{fontFamily:"'DM Mono',monospace",fontSize:13,color:"#F87171",fontWeight:600}}>{rp(totalWd)}</div></div>
+                <div>
+                  <div style={{fontSize:10,color:"#334155"}}>Total Ditarik</div>
+                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:13,color:"#F87171",fontWeight:600}}>{rp(totalWd)}</div>
+                </div>
                 <div style={{width:1,background:"rgba(255,255,255,.06)"}}/>
-                <div><div style={{fontSize:10,color:"#334155"}}>Riwayat Tarik</div><div style={{fontFamily:"'DM Mono',monospace",fontSize:13,color:"#64748B",fontWeight:600}}>{withdrawRecs.length}x</div></div>
+                <div>
+                  <div style={{fontSize:10,color:"#334155"}}>Riwayat Tarik</div>
+                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:13,color:"#64748B",fontWeight:600}}>{withdrawRecs.length}x</div>
+                </div>
               </div>
             </div>
-            <button onClick={()=>setShowWaModal(true)} disabled={saldoTabungan<=0} style={{display:"flex",alignItems:"center",gap:10,padding:"14px 22px",borderRadius:13,border:"none",background:saldoTabungan>0?"linear-gradient(135deg,#25D366,#128C7E)":"#1E293B",color:saldoTabungan>0?"#fff":"#334155",fontSize:14,fontWeight:700,cursor:saldoTabungan>0?"pointer":"not-allowed",whiteSpace:"nowrap"}}>📱 Request Tarik Tabungan</button>
+            <button
+              onClick={()=>setShowWaModal(true)}
+              disabled={saldoTabungan<=0}
+              style={{display:"flex",alignItems:"center",gap:10,padding:"14px 22px",borderRadius:13,border:"none",
+                background:saldoTabungan>0?"linear-gradient(135deg,#25D366,#128C7E)":"#1E293B",
+                color:saldoTabungan>0?"#fff":"#334155",fontSize:14,fontWeight:700,
+                cursor:saldoTabungan>0?"pointer":"not-allowed",whiteSpace:"nowrap"}}>
+              📱 Request Tarik Tabungan
+            </button>
           </div>
         </div>
+
+        {/* ── Tabel Transaksi dengan Expand ── */}
         <div style={{background:"rgba(255,255,255,.02)",border:"1px solid rgba(255,255,255,.06)",borderRadius:16,overflow:"hidden"}}>
-          <div style={{padding:"14px 18px",borderBottom:"1px solid rgba(255,255,255,.05)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-            <div><div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,letterSpacing:".12em",color:"#CBD5E1"}}>Rincian Pendapatan — {user.label}</div><div style={{fontSize:11,color:"#334155"}}>{sorted.length} transaksi</div></div>
-            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Cari dev / konsumen..." style={{...S.inp,width:"100%",maxWidth:210,padding:"7px 12px",fontSize:12}}/>
+          <div style={{padding:"14px 18px",borderBottom:"1px solid rgba(255,255,255,.05)",
+            display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+            <div>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,letterSpacing:".12em",color:"#CBD5E1"}}>
+                💰 Rincian Pendapatan — {user.label}
+              </div>
+              <div style={{fontSize:11,color:"#334155"}}>{sorted.length} transaksi</div>
+            </div>
+            <input value={search} onChange={e=>setSearch(e.target.value)}
+              placeholder="🔍 Cari dev / konsumen..."
+              style={{...S.inp,width:"100%",maxWidth:210,padding:"7px 12px",fontSize:12}}/>
           </div>
+
           <div className="table-scroll">
-            <table style={{width:"100%",minWidth:520,borderCollapse:"collapse",fontSize:13}}>
-              <thead><tr style={{background:"rgba(255,255,255,.03)"}}>{[{l:"No",c:null},{l:"Dev / Listing",c:"namaDev"},{l:"Konsumen",c:"namaKonsumen"},{l:"Tgl",c:"tanggal"},{l:"Fee Lariz",c:"feeLariz"},{l:`Fee ${user.label}`,c:user.feeField},{l:"Saving BDB",c:user.savingField},{l:"Total",c:null}].map(({l,c})=>(<th key={l} onClick={()=>c&&toggleSort(c)} style={{padding:"9px 14px",textAlign:"left",fontSize:10,fontWeight:700,letterSpacing:".1em",color:"#334155",cursor:c?"pointer":"default",textTransform:"uppercase",whiteSpace:"nowrap",borderBottom:"1px solid rgba(255,255,255,.05)",userSelect:"none"}}>{l}{c&&<SI col={c}/>}</th>))}</tr></thead>
+            <table style={{width:"100%",minWidth:560,borderCollapse:"collapse",fontSize:13}}>
+              <thead>
+                <tr style={{background:"rgba(255,255,255,.03)"}}>
+                  {[
+                    {l:"No",           c:null},
+                    {l:"Dev / Listing", c:"namaDev"},
+                    {l:"Konsumen",      c:"namaKonsumen"},
+                    {l:"Tgl",           c:"tanggal"},
+                    {l:"Fee Lariz",     c:"feeLariz"},
+                    {l:`Fee ${user.label}`, c:user.feeField},
+                    {l:"Saving BDB",    c:user.savingField},
+                    {l:"Total",         c:null},
+                    {l:"",              c:null},
+                  ].map(({l,c})=>(
+                    <th key={l} onClick={()=>c&&toggleSort(c)}
+                      style={{padding:"9px 14px",textAlign:"left",fontSize:10,fontWeight:700,
+                        letterSpacing:".1em",color:"#334155",cursor:c?"pointer":"default",
+                        textTransform:"uppercase",whiteSpace:"nowrap",
+                        borderBottom:"1px solid rgba(255,255,255,.05)",userSelect:"none"}}>
+                      {l}{c&&<SI col={c}/>}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+
               <tbody>
-                {sorted.length===0&&<tr><td colSpan={8} style={{padding:40,textAlign:"center",color:"#334155"}}><div style={{fontSize:28,marginBottom:8}}>📭</div>Belum ada transaksi.</td></tr>}
-                {sorted.map((r,i)=>{const f=parseFloat(r[user.feeField])||0,sv=parseFloat(r[user.savingField])||0;return(<tr key={i} className="row-hover" style={{borderBottom:"1px solid rgba(255,255,255,.04)",background:i%2===0?"transparent":"rgba(255,255,255,.012)"}}><td style={S.td}><span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:"#1E293B"}}>{String(i+1).padStart(2,"0")}</span></td><td style={S.td}><span style={{fontWeight:600,color:"#CBD5E1"}}>{r.namaDev||"-"}</span></td><td style={S.td}><span style={{color:"#64748B"}}>{r.namaKonsumen||"-"}</span></td><td style={S.td}><span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:"#475569"}}>{fmtDate(r.tanggal)}</span></td><td style={S.td}><span style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:"#64748B"}}>{rp(r.feeLariz)}</span></td><td style={S.td}><span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,color:user.color}}>{rp(f)}</span></td><td style={S.td}><span style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:"#F59E0B"}}>{rp(sv)}</span></td><td style={S.td}><div style={{display:"inline-flex",background:`${user.color}12`,border:`1px solid ${user.color}30`,borderRadius:7,padding:"4px 10px",fontFamily:"'DM Mono',monospace",fontWeight:700,color:user.color,fontSize:13}}>{rp(f+sv)}</div></td></tr>);})}
+                {sorted.length===0&&(
+                  <tr><td colSpan={9} style={{padding:40,textAlign:"center",color:"#334155"}}>
+                    <div style={{fontSize:28,marginBottom:8}}>📭</div>Belum ada transaksi.
+                  </td></tr>
+                )}
+
+                {sorted.map((r,i)=>{
+                  const f=parseFloat(r[user.feeField])||0;
+                  const sv=parseFloat(r[user.savingField])||0;
+                  const isExp=expandedRow===i;
+
+                  return(
+                    <React.Fragment key={i}>
+                      {/* ── Main Row ── */}
+                      <tr className="row-hover"
+                        style={{borderBottom:"1px solid rgba(255,255,255,.04)",
+                          background:isExp?"rgba(99,102,241,.06)":i%2===0?"transparent":"rgba(255,255,255,.012)",
+                          transition:"background .12s"}}>
+
+                        <td style={S.td}>
+                          <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:"#1E293B"}}>
+                            {String(i+1).padStart(2,"0")}
+                          </span>
+                        </td>
+                        <td style={S.td}>
+                          <span style={{fontWeight:600,color:"#CBD5E1"}}>{r.namaDev||"-"}</span>
+                        </td>
+                        <td style={S.td}>
+                          <span style={{color:"#64748B"}}>{r.namaKonsumen||"-"}</span>
+                        </td>
+                        <td style={S.td}>
+                          <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:"#475569"}}>
+                            {fmtDate(r.tanggal)}
+                          </span>
+                        </td>
+                        <td style={S.td}>
+                          <span style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:"#64748B"}}>
+                            {rp(r.feeLariz)}
+                          </span>
+                        </td>
+                        <td style={S.td}>
+                          <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,color:user.color}}>
+                            {rp(f)}
+                          </span>
+                        </td>
+                        <td style={S.td}>
+                          <span style={{fontFamily:"'DM Mono',monospace",fontSize:12,color:"#F59E0B"}}>
+                            {rp(sv)}
+                          </span>
+                        </td>
+                        <td style={S.td}>
+                          <div style={{display:"inline-flex",background:`${user.color}12`,
+                            border:`1px solid ${user.color}30`,borderRadius:7,padding:"4px 10px",
+                            fontFamily:"'DM Mono',monospace",fontWeight:700,color:user.color,fontSize:13}}>
+                            {rp(f+sv)}
+                          </div>
+                        </td>
+                        <td style={S.td}>
+                          <button onClick={()=>setExpandedRow(isExp?null:i)}
+                            style={{padding:"4px 10px",borderRadius:7,border:"1px solid rgba(255,255,255,.1)",
+                              background:isExp?"rgba(99,102,241,.15)":"transparent",
+                              color:isExp?"#818CF8":"#475569",fontSize:11,fontWeight:600,
+                              cursor:"pointer",transition:"all .15s",whiteSpace:"nowrap"}}>
+                            {isExp?"▲ Tutup":"▼ Detail"}
+                          </button>
+                        </td>
+                      </tr>
+
+                      {/* ── Expand Row ── */}
+                      {isExp&&(
+                        <tr style={{background:"rgba(99,102,241,.04)",
+                          borderBottom:"1px solid rgba(255,255,255,.04)"}}>
+                          <td colSpan={9} style={{padding:"16px 20px"}}>
+                            <div style={{animation:"fadeUp .2s ease"}}>
+
+                              {/* Info umum */}
+                              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:8,marginBottom:12}}>
+                                {[
+                                  ["Tanggal",        fmtDate(r.tanggal),     "#64748B"],
+                                  ["Dev / Listing",  r.namaDev||"—",         "#CBD5E1"],
+                                  ["Konsumen",       r.namaKonsumen||"—",    "#CBD5E1"],
+                                  ["Fee Lariz",      rp(r.feeLariz),         "#34D399"],
+                                  ["Co-Broke",       rp(r.feeAgentBT||0),    "#F87171"],
+                                  ["Net Commission", rp(r.netCommission||0), "#818CF8"],
+                                ].map(([l,v,c])=>(
+                                  <div key={l} style={{background:"rgba(255,255,255,.03)",borderRadius:8,padding:"8px 10px"}}>
+                                    <div style={{fontSize:9,color:"#334155",textTransform:"uppercase",letterSpacing:".07em",marginBottom:3}}>{l}</div>
+                                    <div style={{fontSize:12,color:c,fontWeight:600,fontFamily:"'DM Mono',monospace"}}>{v}</div>
+                                  </div>
+                                ))}
+                              </div>
+
+                              {/* Alokasi user */}
+                              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:8,marginBottom:r.keterangan?12:0}}>
+                                <div style={{background:`${user.color}10`,border:`1px solid ${user.color}25`,borderRadius:8,padding:"8px 10px"}}>
+                                  <div style={{fontSize:9,color:"#334155",textTransform:"uppercase",letterSpacing:".07em",marginBottom:3}}>💰 Fee {user.label}</div>
+                                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:15,fontWeight:700,color:user.color}}>{rp(f)}</div>
+                                </div>
+                                <div style={{background:"rgba(245,158,11,.08)",border:"1px solid rgba(245,158,11,.2)",borderRadius:8,padding:"8px 10px"}}>
+                                  <div style={{fontSize:9,color:"#334155",textTransform:"uppercase",letterSpacing:".07em",marginBottom:3}}>🏦 Saving BDB</div>
+                                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:15,fontWeight:700,color:"#F59E0B"}}>{rp(sv)}</div>
+                                </div>
+                                <div style={{background:"rgba(99,102,241,.1)",border:"1px solid rgba(99,102,241,.25)",borderRadius:8,padding:"8px 10px"}}>
+                                  <div style={{fontSize:9,color:"#334155",textTransform:"uppercase",letterSpacing:".07em",marginBottom:3}}>💎 Total Kamu</div>
+                                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:15,fontWeight:700,color:"#818CF8"}}>{rp(f+sv)}</div>
+                                </div>
+                                <div style={{background:"rgba(52,211,153,.08)",border:"1px solid rgba(52,211,153,.2)",borderRadius:8,padding:"8px 10px"}}>
+                                  <div style={{fontSize:9,color:"#334155",textTransform:"uppercase",letterSpacing:".07em",marginBottom:3}}>📊 % dari Net</div>
+                                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:15,fontWeight:700,color:"#34D399"}}>
+                                    {r.netCommission>0?((f/r.netCommission)*100).toFixed(1):0}%
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Keterangan */}
+                              {r.keterangan&&(
+                                <div style={{padding:"8px 12px",background:"rgba(255,255,255,.03)",
+                                  borderRadius:8,border:"1px solid rgba(255,255,255,.06)"}}>
+                                  <div style={{fontSize:9,color:"#334155",textTransform:"uppercase",
+                                    letterSpacing:".07em",marginBottom:3}}>Keterangan</div>
+                                  <div style={{fontSize:12,color:"#94A3B8"}}>{r.keterangan}</div>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
-              {sorted.length>0&&(<tfoot><tr style={{background:"rgba(255,255,255,.04)",borderTop:`2px solid ${user.color}30`}}><td colSpan={4} style={{padding:"11px 14px",fontSize:10,fontWeight:700,letterSpacing:".1em",color:"#334155",textTransform:"uppercase"}}>TOTAL ({sorted.length})</td><td style={S.td}><span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,color:"#CBD5E1",fontSize:13}}>{rp(sorted.reduce((s,r)=>s+(parseFloat(r.feeLariz)||0),0))}</span></td><td style={S.td}><span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,color:user.color,fontSize:13}}>{rp(sorted.reduce((s,r)=>s+(parseFloat(r[user.feeField])||0),0))}</span></td><td style={S.td}><span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,color:"#F59E0B",fontSize:13}}>{rp(sorted.reduce((s,r)=>s+(parseFloat(r[user.savingField])||0),0))}</span></td><td style={S.td}><div style={{display:"inline-flex",background:`${user.color}18`,border:`1px solid ${user.color}45`,borderRadius:7,padding:"5px 12px",fontFamily:"'Bebas Neue',sans-serif",fontSize:14,color:user.color}}>{rpS(sorted.reduce((s,r)=>s+(parseFloat(r[user.feeField])||0)+(parseFloat(r[user.savingField])||0),0))}</div></td></tr></tfoot>)}
+
+              {/* Footer total */}
+              {sorted.length>0&&(
+                <tfoot>
+                  <tr style={{background:"rgba(255,255,255,.04)",borderTop:`2px solid ${user.color}30`}}>
+                    <td colSpan={4} style={{padding:"11px 14px",fontSize:10,fontWeight:700,
+                      letterSpacing:".1em",color:"#334155",textTransform:"uppercase"}}>
+                      TOTAL ({sorted.length})
+                    </td>
+                    <td style={S.td}>
+                      <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,color:"#CBD5E1",fontSize:13}}>
+                        {rp(sorted.reduce((s,r)=>s+(parseFloat(r.feeLariz)||0),0))}
+                      </span>
+                    </td>
+                    <td style={S.td}>
+                      <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,color:user.color,fontSize:13}}>
+                        {rp(sorted.reduce((s,r)=>s+(parseFloat(r[user.feeField])||0),0))}
+                      </span>
+                    </td>
+                    <td style={S.td}>
+                      <span style={{fontFamily:"'DM Mono',monospace",fontWeight:700,color:"#F59E0B",fontSize:13}}>
+                        {rp(sorted.reduce((s,r)=>s+(parseFloat(r[user.savingField])||0),0))}
+                      </span>
+                    </td>
+                    <td style={S.td}>
+                      <div style={{display:"inline-flex",background:`${user.color}18`,
+                        border:`1px solid ${user.color}45`,borderRadius:7,padding:"5px 12px",
+                        fontFamily:"'Bebas Neue',sans-serif",fontSize:14,color:user.color}}>
+                        {rpS(sorted.reduce((s,r)=>s+(parseFloat(r[user.feeField])||0)+(parseFloat(r[user.savingField])||0),0))}
+                      </div>
+                    </td>
+                    <td/>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         </div>
       </div>
+
       {showWaModal&&<WaRequestModal user={user} saldo={saldoTabungan} onClose={()=>setShowWaModal(false)}/>}
       {showChangePwd&&<ChangePasswordModal user={{...user,username:user.username}} onClose={()=>{setShowChangePwd(false);refreshPwdMap&&refreshPwdMap();}}/>}
     </div>
